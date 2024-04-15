@@ -3,26 +3,28 @@ use std::io::prelude::*;
 use std::io::{Read, stdout, Write};
 use termion::raw::IntoRawMode;
 
+macro_rules! ctrl_key {
+    ($k:expr) => {($k as u8) & 0x1f};
+}
+
+
+fn editor_read_key() -> u8 {
+    let mut c = [0; 1];
+    io::stdin().lock().read(&mut c).unwrap();
+    return c[0];
+}
+
+fn editor_process_key_press() -> bool {
+    let key = editor_read_key();
+    match key {
+        k if k == ctrl_key!('q') => false,
+        _ => true
+    }
+}
+
 fn main() {
-    let stdin = io::stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
-
-    let mut stdin = stdin.lock();
-
     stdout.flush().unwrap();
 
-    let mut c = [0;1];
-    loop {
-        io::
-        stdin.read(&mut c).unwrap();
-        if c[0] == 'q' as u8 {
-            break;
-        }
-        if c[0].is_ascii_control() {
-            print!("{}\r\n", c[0])
-        } else {
-            print!("{} ({})\r\n", c[0], c[0] as char)
-        }
-    }
-
+    while editor_process_key_press() {}
 }
