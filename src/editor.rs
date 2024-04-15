@@ -13,9 +13,10 @@ macro_rules! ctrl_key {
 
 pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
-    cx: u16,
-    cy: u16,
+    cx: u32,
+    cy: u32,
     rows_num: u32,
+    row_off: u32,
     row: Vec<Vec<u8>>,
     cfg: EditorCfg<'a>,
 }
@@ -31,6 +32,7 @@ impl<'a> Editor<'a> {
             cx: 0,
             cy: 0,
             rows_num: 0,
+            row_off: 0,
             row: Vec::new(),
         }
     }
@@ -83,7 +85,7 @@ impl Editor<'_> {
                 self.cy = self.cy.saturating_sub(1);
             }
             Keys::ARROW_DOWN => {
-                self.cy = min(self.cy.wrapping_add(1), self.cfg.screen_row);
+                self.cy = self.cy.wrapping_add(1);
             }
             Keys::ARROW_LEFT => {
                 self.cx = self.cx.saturating_sub(1);
@@ -96,26 +98,38 @@ impl Editor<'_> {
     }
 
     fn refresh_screen(&mut self) {
+        self.scroll();
         self.stdout.write_all(b"\x1b[?25l").unwrap();
         self.stdout.write_all(b"\x1b[H").unwrap();
         self.draw_rows();
         self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cy + 1, self.cx + 1).as_bytes()
+            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.cx + 1).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
         self.stdout.flush().unwrap();
     }
 
+    fn scroll(&mut self) {
+        if self.cy < self.row_off {
+            self.row_off = self.cy;
+        }
+
+        if self.cy >= self.row_off + self.cfg.screen_row {
+            self.row_off = self.cy - self.cfg.screen_row + 1;
+        }
+    }
+
     fn draw_rows(&mut self) {
         for r in 0..self.cfg.screen_row {
-            if r < self.rows_num as u16 {
-                let row = &self.row[r as usize];
+            let file_row = r as u32 + self.row_off;
+            if file_row < self.rows_num {
+                let row = &self.row[file_row as usize];
                 let row = &row[..min(row.len(), self.cfg.screen_col as usize)];
                 self.stdout.write(row).unwrap();
             } else if self.rows_num == 0 && r == self.cfg.screen_row / 3 {
                 let welcome = format!("My editor -- version:{}", VERSION);
                 let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
-                let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u16)) / 2;
+                let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u32)) / 2;
                 if padding > 0 {
                     self.stdout.write_all(b"~").unwrap();
                     padding -= 1;
