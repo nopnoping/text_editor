@@ -12,6 +12,8 @@ macro_rules! ctrl_key {
 
 pub struct Editor {
     stdout: RawTerminal<Stdout>,
+    cx: u16,
+    cy: u16,
     cfg: EditorCfg,
 }
 
@@ -22,6 +24,8 @@ impl Editor {
         Editor {
             stdout,
             cfg,
+            cx: 0,
+            cy: 0,
         }
     }
 
@@ -46,23 +50,40 @@ impl Editor {
             Keys::PAGE_UP => {
                 let mut times = self.cfg.screen_row;
                 while times > 0 {
-                    self.cfg.move_cursor(Keys::ARROW_UP);
+                    self.move_cursor(Keys::ARROW_UP);
                     times -= 1;
                 }
             }
             Keys::PAGE_DOWN => {
                 let mut times = self.cfg.screen_row;
                 while times > 0 {
-                    self.cfg.move_cursor(Keys::ARROW_DOWN);
+                    self.move_cursor(Keys::ARROW_DOWN);
                     times -= 1;
                 }
             }
-            Keys::HOME_KEY => self.cfg.cx = 0,
-            Keys::END_KEY => self.cfg.cx = self.cfg.screen_col - 1,
-            Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.cfg.move_cursor(key),
+            Keys::HOME_KEY => self.cx = 0,
+            Keys::END_KEY => self.cx = self.cfg.screen_col - 1,
+            Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.move_cursor(key),
             _ => {}
         };
         return true;
+    }
+    pub fn move_cursor(&mut self, key: Keys) {
+        match key {
+            Keys::ARROW_UP => {
+                self.cy = self.cy.saturating_sub(1);
+            }
+            Keys::ARROW_DOWN => {
+                self.cy = min(self.cy.wrapping_add(1), self.cfg.screen_row);
+            }
+            Keys::ARROW_LEFT => {
+                self.cx = self.cx.saturating_sub(1);
+            }
+            Keys::ARROW_RIGHT => {
+                self.cx = min(self.cx.wrapping_add(1), self.cfg.screen_col);
+            }
+            _ => {}
+        }
     }
 
     fn refresh_screen(&mut self) {
@@ -70,7 +91,7 @@ impl Editor {
         self.stdout.write_all(b"\x1b[H").unwrap();
         self.draw_rows();
         self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cfg.cy + 1, self.cfg.cx + 1).as_bytes()
+            format!("\x1b[{};{}H", self.cy + 1, self.cx + 1).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
         self.stdout.flush().unwrap();
