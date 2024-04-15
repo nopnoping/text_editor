@@ -203,14 +203,13 @@ impl Editor<'_> {
             let reader = BufReader::new(file);
 
             for line in reader.lines() {
+                // store raw content
                 let line = line.unwrap().replace("\r\n", "");
                 self.row.push(Vec::new());
-                self.render.push(Vec::new());
-
-                // store raw content
                 self.row[self.rows_num as usize].write(line.as_bytes()).unwrap();
 
                 // store render content
+                self.render.push(Vec::new());
                 let mut render_vec = Vec::new();
                 for c in line.as_bytes() {
                     if *c == '\t' as u8 {
