@@ -41,7 +41,27 @@ impl Editor {
     fn read_key(&self) -> char {
         let mut c = [0; 1];
         io::stdin().lock().read(&mut c).unwrap();
-        return c[0] as char;
+        let r = c[0] as char;
+
+        if r == '\x1b' {
+            io::stdin().lock().read(&mut c).unwrap();
+            let r1 = c[0] as char;
+            io::stdin().lock().read(&mut c).unwrap();
+            let r2 = c[0] as char;
+            if r1 == '[' {
+                match r2 {
+                    'A' => 'k',
+                    'B' => 'j',
+                    'C' => 'l',
+                    'D' => 'h',
+                    _ => '\x1b',
+                }
+            } else {
+                '\x1b'
+            }
+        } else {
+            r
+        }
     }
 
     fn process_key_press(&mut self) -> bool {
