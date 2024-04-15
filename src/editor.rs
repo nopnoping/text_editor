@@ -1,15 +1,15 @@
 use std::cmp::min;
-use std::fmt::format;
 use std::io;
 use std::io::{Read, Stdout, stdout, Write};
-use std::ptr::write;
+use termion::event::Event::Key;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
+use crate::key::Keys;
 
 const VERSION: &str = "0.0.1";
 
 macro_rules! ctrl_key {
-    ($k:expr) => {(($k as u8) & 0x1f)as char};
+    ($k:expr) => {($k as u8) & 0x1f};
 }
 
 pub struct Editor {
@@ -38,7 +38,7 @@ impl Editor {
 }
 
 impl Editor {
-    fn read_key(&self) -> char {
+    fn read_key(&self) -> Keys {
         let mut c = [0; 1];
         io::stdin().lock().read(&mut c).unwrap();
         let r = c[0] as char;
@@ -50,28 +50,28 @@ impl Editor {
             let r2 = c[0] as char;
             if r1 == '[' {
                 match r2 {
-                    'A' => 'k',
-                    'B' => 'j',
-                    'C' => 'l',
-                    'D' => 'h',
-                    _ => '\x1b',
+                    'A' => Keys::ARROW_UP,
+                    'B' => Keys::ARROW_DOWN,
+                    'C' => Keys::ARROW_RIGHT,
+                    'D' => Keys::ARROW_LEFT,
+                    _ => Keys::NORMAL('\x1b' as u8),
                 }
             } else {
-                '\x1b'
+                Keys::NORMAL('\x1b' as u8)
             }
         } else {
-            r
+            Keys::NORMAL(c[0])
         }
     }
 
     fn process_key_press(&mut self) -> bool {
         let key = self.read_key();
         match key {
-            k if k == ctrl_key!('q') => {
+            Keys::NORMAL(k) if k == ctrl_key!('q') => {
                 print!("\x1b[2J\x1b[H");
                 false
             }
-            'h' | 'j' | 'k' | 'l' => {
+            Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => {
                 self.cfg.move_cursor(key);
                 true
             }

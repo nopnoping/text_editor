@@ -1,4 +1,7 @@
+use std::cmp::min;
 use termion::terminal_size;
+use crate::key::Keys;
+
 
 pub struct EditorCfg {
     pub screen_row: u16,
@@ -18,19 +21,19 @@ impl EditorCfg {
         }
     }
 
-    pub fn move_cursor(&mut self, key: char) {
+    pub fn move_cursor(&mut self, key: Keys) {
         match key {
-            'k' => {
-                self.cy = self.cy.wrapping_sub(1);
+            Keys::ARROW_UP => {
+                self.cy = self.cy.saturating_sub(1);
             }
-            'j' => {
-                self.cy = self.cy.wrapping_add(1);
+            Keys::ARROW_DOWN => {
+                self.cy = min(self.cy.wrapping_add(1), self.screen_row);
             }
-            'h' => {
-                self.cx = self.cx.wrapping_sub(1);
+            Keys::ARROW_LEFT => {
+                self.cx = self.cx.saturating_sub(1);
             }
-            'l' => {
-                self.cx = self.cx.wrapping_add(1);
+            Keys::ARROW_RIGHT => {
+                self.cx = min(self.cx.wrapping_add(1), self.screen_col);
             }
             _ => {}
         }
