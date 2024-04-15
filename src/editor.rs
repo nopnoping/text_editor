@@ -1,7 +1,11 @@
+use std::cmp::min;
 use std::io;
 use std::io::{Read, Stdout, stdout, Write};
+use std::ptr::write;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
+
+const VERSION: &str = "0.0.1";
 
 macro_rules! ctrl_key {
     ($k:expr) => {($k as u8) & 0x1f};
@@ -43,8 +47,7 @@ impl Editor {
         let key = self.read_key();
         match key {
             k if k == ctrl_key!('q') => {
-                self.stdout.write(b"\x1b[2J").unwrap();
-                self.stdout.write(b"\x1b[H").unwrap();
+                print!("\x1b[2J\x1b[H");
                 false
             }
             _ => true
@@ -52,16 +55,33 @@ impl Editor {
     }
 
     fn refresh_screen(&mut self) {
-        self.stdout.write_all(b"\x1b[2J").unwrap();
+        self.stdout.write_all(b"\x1b[?25l").unwrap();
         self.stdout.write_all(b"\x1b[H").unwrap();
         self.draw_rows();
         self.stdout.write_all(b"\x1b[H").unwrap();
+        self.stdout.write_all(b"\x1b[?25h").unwrap();
         self.stdout.flush().unwrap();
     }
 
     fn draw_rows(&mut self) {
         for r in 0..self.cfg.screen_size.1 {
-            self.stdout.write_all(b"~").unwrap();
+            if (r == self.cfg.screen_size.1 / 3) {
+                let welcome = format!("My editor -- version:{}", VERSION);
+                let welcome = &welcome[..min(welcome.len(), self.cfg.screen_size.0 as usize)];
+                let mut padding = (self.cfg.screen_size.0.wrapping_sub(welcome.len() as u16)) / 2;
+                if padding > 0 {
+                    self.stdout.write_all(b"~").unwrap();
+                    padding -= 1;
+                }
+                while padding > 0 {
+                    self.stdout.write_all(b" ").unwrap();
+                    padding -= 1;
+                }
+                self.stdout.write_all(welcome.as_bytes()).unwrap();
+            } else {
+                self.stdout.write_all(b"~").unwrap();
+            }
+            self.stdout.write_all(b"\x1b[K").unwrap();
             if r < self.cfg.screen_size.1 - 1 {
                 self.stdout.write_all(b"\r\n").unwrap();
             }
