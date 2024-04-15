@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Stdout, stdout, Write};
 use termion::raw::{IntoRawMode, RawTerminal};
@@ -85,7 +85,7 @@ impl Editor<'_> {
                 self.cy = self.cy.saturating_sub(1);
             }
             Keys::ARROW_DOWN => {
-                self.cy = self.cy.wrapping_add(1);
+                self.cy = min(self.cy.wrapping_add(1), max(self.rows_num, self.cfg.screen_row));
             }
             Keys::ARROW_LEFT => {
                 self.cx = self.cx.saturating_sub(1);
