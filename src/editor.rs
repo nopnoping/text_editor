@@ -100,7 +100,14 @@ impl Editor<'_> {
                 }
             }
             Keys::ARROW_RIGHT => {
-                self.cx = self.cx.wrapping_add(1)
+                if self.cy < self.rows_num {
+                    if self.cx < self.row[self.cy as usize].len() as u32 {
+                        self.cx = self.cx.wrapping_add(1)
+                    } else {
+                        self.cx = 0;
+                        self.cy += 1;
+                    }
+                }
             }
             _ => {}
         }
@@ -187,7 +194,6 @@ impl Editor<'_> {
                 let line = line.unwrap().replace("\r\n", "");
                 self.row.push(Vec::new());
                 self.row[self.rows_num as usize].write(line.as_bytes()).unwrap();
-                self.row[self.rows_num as usize].write(b"\0").unwrap();
                 self.rows_num += 1;
             }
         }
