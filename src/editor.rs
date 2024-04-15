@@ -1,4 +1,5 @@
 use std::cmp::min;
+use std::fmt::format;
 use std::io;
 use std::io::{Read, Stdout, stdout, Write};
 use std::ptr::write;
@@ -8,7 +9,7 @@ use crate::config::EditorCfg;
 const VERSION: &str = "0.0.1";
 
 macro_rules! ctrl_key {
-    ($k:expr) => {($k as u8) & 0x1f};
+    ($k:expr) => {(($k as u8) & 0x1f)as char};
 }
 
 pub struct Editor {
@@ -37,10 +38,10 @@ impl Editor {
 }
 
 impl Editor {
-    fn read_key(&self) -> u8 {
+    fn read_key(&self) -> char {
         let mut c = [0; 1];
         io::stdin().lock().read(&mut c).unwrap();
-        return c[0];
+        return c[0] as char;
     }
 
     fn process_key_press(&mut self) -> bool {
@@ -50,6 +51,10 @@ impl Editor {
                 print!("\x1b[2J\x1b[H");
                 false
             }
+            'h' | 'j' | 'k' | 'l' => {
+                self.cfg.move_cursor(key);
+                true
+            }
             _ => true
         }
     }
@@ -58,17 +63,19 @@ impl Editor {
         self.stdout.write_all(b"\x1b[?25l").unwrap();
         self.stdout.write_all(b"\x1b[H").unwrap();
         self.draw_rows();
-        self.stdout.write_all(b"\x1b[H").unwrap();
+        self.stdout.write_all(
+            format!("\x1b[{};{}H", self.cfg.cy + 1, self.cfg.cx + 1).as_bytes()
+        ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
         self.stdout.flush().unwrap();
     }
 
     fn draw_rows(&mut self) {
-        for r in 0..self.cfg.screen_size.1 {
-            if (r == self.cfg.screen_size.1 / 3) {
+        for r in 0..self.cfg.screen_row {
+            if (r == self.cfg.screen_row / 3) {
                 let welcome = format!("My editor -- version:{}", VERSION);
-                let welcome = &welcome[..min(welcome.len(), self.cfg.screen_size.0 as usize)];
-                let mut padding = (self.cfg.screen_size.0.wrapping_sub(welcome.len() as u16)) / 2;
+                let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
+                let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u16)) / 2;
                 if padding > 0 {
                     self.stdout.write_all(b"~").unwrap();
                     padding -= 1;
@@ -82,7 +89,7 @@ impl Editor {
                 self.stdout.write_all(b"~").unwrap();
             }
             self.stdout.write_all(b"\x1b[K").unwrap();
-            if r < self.cfg.screen_size.1 - 1 {
+            if r < self.cfg.screen_row - 1 {
                 self.stdout.write_all(b"\r\n").unwrap();
             }
         }
