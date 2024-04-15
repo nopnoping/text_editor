@@ -1,7 +1,5 @@
 use std::cmp::min;
-use std::io;
-use std::io::{Read, Stdout, stdout, Write};
-use termion::event::Event::Key;
+use std::io::{Stdout, stdout, Write};
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
 use crate::key::Keys;
@@ -38,45 +36,33 @@ impl Editor {
 }
 
 impl Editor {
-    fn read_key(&self) -> Keys {
-        let mut c = [0; 1];
-        io::stdin().lock().read(&mut c).unwrap();
-        let r = c[0] as char;
-
-        if r == '\x1b' {
-            io::stdin().lock().read(&mut c).unwrap();
-            let r1 = c[0] as char;
-            io::stdin().lock().read(&mut c).unwrap();
-            let r2 = c[0] as char;
-            if r1 == '[' {
-                match r2 {
-                    'A' => Keys::ARROW_UP,
-                    'B' => Keys::ARROW_DOWN,
-                    'C' => Keys::ARROW_RIGHT,
-                    'D' => Keys::ARROW_LEFT,
-                    _ => Keys::NORMAL('\x1b' as u8),
-                }
-            } else {
-                Keys::NORMAL('\x1b' as u8)
-            }
-        } else {
-            Keys::NORMAL(c[0])
-        }
-    }
-
     fn process_key_press(&mut self) -> bool {
-        let key = self.read_key();
+        let key = Keys::read_key();
         match key {
             Keys::NORMAL(k) if k == ctrl_key!('q') => {
                 print!("\x1b[2J\x1b[H");
-                false
+                return false;
             }
-            Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => {
-                self.cfg.move_cursor(key);
-                true
+            Keys::PAGE_UP => {
+                let mut times = self.cfg.screen_row;
+                while times > 0 {
+                    self.cfg.move_cursor(Keys::ARROW_UP);
+                    times -= 1;
+                }
             }
-            _ => true
-        }
+            Keys::PAGE_DOWN => {
+                let mut times = self.cfg.screen_row;
+                while times > 0 {
+                    self.cfg.move_cursor(Keys::ARROW_DOWN);
+                    times -= 1;
+                }
+            }
+            Keys::HOME_KEY => self.cfg.cx = 0,
+            Keys::END_KEY => self.cfg.cx = self.cfg.screen_col - 1,
+            Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.cfg.move_cursor(key),
+            _ => {}
+        };
+        return true;
     }
 
     fn refresh_screen(&mut self) {
@@ -92,7 +78,7 @@ impl Editor {
 
     fn draw_rows(&mut self) {
         for r in 0..self.cfg.screen_row {
-            if (r == self.cfg.screen_row / 3) {
+            if r == self.cfg.screen_row / 3 {
                 let welcome = format!("My editor -- version:{}", VERSION);
                 let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
                 let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u16)) / 2;
