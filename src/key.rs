@@ -7,6 +7,7 @@ pub enum Keys {
     ARROW_RIGHT,
     ARROW_UP,
     ARROW_DOWN,
+    DEL_KEY,
     HOME_KEY,
     END_KEY,
     PAGE_UP,
@@ -33,6 +34,7 @@ impl Keys {
                     if r3 == '~' {
                         return match r2 {
                             '1' => Keys::HOME_KEY,
+                            '3' => Keys::DEL_KEY,
                             '4' => Keys::END_KEY,
                             '5' => Keys::PAGE_UP,
                             '6' => Keys::PAGE_DOWN,
