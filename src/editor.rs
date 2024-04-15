@@ -60,8 +60,11 @@ impl Editor {
     }
 
     fn draw_rows(&mut self) {
-        for _ in 0..self.cfg.screen_size.1 {
-            self.stdout.write_all(b"~\r\n").unwrap();
+        for r in 0..self.cfg.screen_size.1 {
+            self.stdout.write_all(b"~").unwrap();
+            if r < self.cfg.screen_size.1 - 1 {
+                self.stdout.write_all(b"\r\n").unwrap();
+            }
         }
     }
 }
