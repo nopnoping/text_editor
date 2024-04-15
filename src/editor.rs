@@ -1,5 +1,6 @@
 use std::cmp::min;
-use std::io::{Stdout, stdout, Write};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Stdout, stdout, Write};
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
 use crate::key::Keys;
@@ -10,15 +11,18 @@ macro_rules! ctrl_key {
     ($k:expr) => {($k as u8) & 0x1f};
 }
 
-pub struct Editor {
+pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
     cx: u16,
     cy: u16,
-    cfg: EditorCfg,
+    rows_num: u32,
+    row: Vec<Vec<u8>>,
+    cfg: EditorCfg<'a>,
 }
 
-impl Editor {
-    pub fn new(cfg: EditorCfg) -> Self {
+/* pub func */
+impl<'a> Editor<'a> {
+    pub fn new(cfg: EditorCfg<'a>) -> Self {
         let mut stdout = stdout().into_raw_mode().unwrap();
         stdout.flush().unwrap();
         Editor {
@@ -26,10 +30,13 @@ impl Editor {
             cfg,
             cx: 0,
             cy: 0,
+            rows_num: 0,
+            row: Vec::new(),
         }
     }
 
     pub fn run(&mut self) {
+        self.edit_or_open();
         loop {
             self.refresh_screen();
             if !self.process_key_press() {
@@ -39,7 +46,8 @@ impl Editor {
     }
 }
 
-impl Editor {
+/* private func */
+impl Editor<'_> {
     fn process_key_press(&mut self) -> bool {
         let key = Keys::read_key();
         match key {
@@ -68,7 +76,8 @@ impl Editor {
         };
         return true;
     }
-    pub fn move_cursor(&mut self, key: Keys) {
+
+    fn move_cursor(&mut self, key: Keys) {
         match key {
             Keys::ARROW_UP => {
                 self.cy = self.cy.saturating_sub(1);
@@ -99,7 +108,11 @@ impl Editor {
 
     fn draw_rows(&mut self) {
         for r in 0..self.cfg.screen_row {
-            if r == self.cfg.screen_row / 3 {
+            if r < self.rows_num as u16 {
+                let row = &self.row[r as usize];
+                let row = &row[..min(row.len(), self.cfg.screen_col as usize)];
+                self.stdout.write(row).unwrap();
+            } else if self.rows_num == 0 && r == self.cfg.screen_row / 3 {
                 let welcome = format!("My editor -- version:{}", VERSION);
                 let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
                 let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u16)) / 2;
@@ -115,9 +128,25 @@ impl Editor {
             } else {
                 self.stdout.write_all(b"~").unwrap();
             }
+
             self.stdout.write_all(b"\x1b[K").unwrap();
             if r < self.cfg.screen_row - 1 {
                 self.stdout.write_all(b"\r\n").unwrap();
+            }
+        }
+    }
+
+    fn edit_or_open(&mut self) {
+        if self.cfg.file_name != "" {
+            let file = File::open(&self.cfg.file_name).unwrap();
+            let reader = BufReader::new(file);
+
+            for line in reader.lines() {
+                let line = line.unwrap().replace("\r\n", "");
+                self.row.push(Vec::new());
+                self.row[self.rows_num as usize].write(line.as_bytes()).unwrap();
+                self.row[self.rows_num as usize].write(b"\0").unwrap();
+                self.rows_num += 1;
             }
         }
     }
