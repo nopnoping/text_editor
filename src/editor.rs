@@ -90,12 +90,25 @@ impl Editor<'_> {
                 self.cy = min(self.cy.wrapping_add(1), max(self.rows_num, self.cfg.screen_row));
             }
             Keys::ARROW_LEFT => {
-                self.cx = self.cx.saturating_sub(1);
+                if self.cx > 0 {
+                    self.cx -= 1;
+                } else if self.cy > 0 {
+                    self.cy -= 1;
+                    if self.cy < self.rows_num {
+                        self.cx = self.row[self.cy as usize].len() as u32;
+                    }
+                }
             }
             Keys::ARROW_RIGHT => {
-                self.cx = self.cx.wrapping_add(1);
+                self.cx = self.cx.wrapping_add(1)
             }
             _ => {}
+        }
+
+        if self.cy < self.rows_num {
+            self.cx = min(self.cx, (self.row[self.cy as usize].len()) as u32)
+        } else {
+            self.cx = 0;
         }
     }
 
