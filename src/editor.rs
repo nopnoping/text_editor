@@ -15,8 +15,9 @@ pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
     cx: u32,
     cy: u32,
-    rows_num: u32,
     row_off: u32,
+    col_off: u32,
+    rows_num: u32,
     row: Vec<Vec<u8>>,
     cfg: EditorCfg<'a>,
 }
@@ -31,8 +32,9 @@ impl<'a> Editor<'a> {
             cfg,
             cx: 0,
             cy: 0,
-            rows_num: 0,
             row_off: 0,
+            col_off: 0,
+            rows_num: 0,
             row: Vec::new(),
         }
     }
@@ -91,7 +93,7 @@ impl Editor<'_> {
                 self.cx = self.cx.saturating_sub(1);
             }
             Keys::ARROW_RIGHT => {
-                self.cx = min(self.cx.wrapping_add(1), self.cfg.screen_col);
+                self.cx = self.cx.wrapping_add(1);
             }
             _ => {}
         }
@@ -103,7 +105,7 @@ impl Editor<'_> {
         self.stdout.write_all(b"\x1b[H").unwrap();
         self.draw_rows();
         self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.cx + 1).as_bytes()
+            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.cx - self.col_off + 1).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
         self.stdout.flush().unwrap();
@@ -117,15 +119,28 @@ impl Editor<'_> {
         if self.cy >= self.row_off + self.cfg.screen_row {
             self.row_off = self.cy - self.cfg.screen_row + 1;
         }
+
+        if self.cx < self.col_off {
+            self.col_off = self.cx;
+        }
+
+        if self.cx >= self.col_off + self.cfg.screen_col {
+            self.col_off = self.cx - self.cfg.screen_col + 1;
+        }
     }
 
     fn draw_rows(&mut self) {
         for r in 0..self.cfg.screen_row {
-            let file_row = r as u32 + self.row_off;
+            let file_row = r + self.row_off;
             if file_row < self.rows_num {
                 let row = &self.row[file_row as usize];
-                let row = &row[..min(row.len(), self.cfg.screen_col as usize)];
-                self.stdout.write(row).unwrap();
+                if self.col_off < row.len() as u32 {
+                    let row = &row[
+                        self.col_off as usize
+                            ..min(row.len(), (self.col_off + self.cfg.screen_col) as usize)
+                        ];
+                    self.stdout.write(row).unwrap();
+                }
             } else if self.rows_num == 0 && r == self.cfg.screen_row / 3 {
                 let welcome = format!("My editor -- version:{}", VERSION);
                 let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
