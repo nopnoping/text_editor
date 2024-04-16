@@ -7,6 +7,7 @@ macro_rules! ctrl_key {
 
 #[allow(non_camel_case_types)]
 pub enum Keys {
+    BACKSPACE,
     ARROW_LEFT,
     ARROW_RIGHT,
     ARROW_UP,
@@ -17,6 +18,11 @@ pub enum Keys {
     PAGE_UP,
     PAGE_DOWN,
     QUIT,
+    CTL_H,
+    CTL_L,
+    CTL_S,
+    ENTER,
+    ESC,
     NORMAL(u8),
 }
 
@@ -45,7 +51,7 @@ impl Keys {
                             '6' => Keys::PAGE_DOWN,
                             '7' => Keys::HOME_KEY,
                             '8' => Keys::END_KEY,
-                            _ => Keys::NORMAL('\x1b' as u8),
+                            _ => Keys::ESC,
                         };
                     }
                 } else {
@@ -56,22 +62,41 @@ impl Keys {
                         'D' => Keys::ARROW_LEFT,
                         'H' => Keys::HOME_KEY,
                         'F' => Keys::END_KEY,
-                        _ => Keys::NORMAL('\x1b' as u8),
+                        _ => Keys::ESC,
                     };
                 }
             } else if r1 == 'O' {
                 return match r2 {
                     'H' => Keys::HOME_KEY,
                     'F' => Keys::END_KEY,
-                    _ => Keys::NORMAL('\x1b' as u8),
+                    _ => Keys::ESC,
                 };
             }
 
-            return Keys::NORMAL('\x1b' as u8);
+            return Keys::ESC;
         }
 
         if r == ctrl_key!('q') as char {
             return Keys::QUIT;
+        }
+
+        if r == ctrl_key!('h') as char {
+            return Keys::CTL_H;
+        }
+
+        if r == ctrl_key!('l') as char {
+            return Keys::CTL_L;
+        }
+        if r == ctrl_key!('s') as char {
+            return Keys::CTL_S;
+        }
+
+        if r == '\r' {
+            return Keys::ENTER;
+        }
+
+        if c[0] == 127 {
+            return Keys::BACKSPACE;
         }
 
         return Keys::NORMAL(c[0]);

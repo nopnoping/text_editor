@@ -24,6 +24,7 @@ pub struct Editor<'a> {
     row: Vec<Vec<u8>>,
     render: Vec<Vec<u8>>,
 
+    dirty: bool,
     status_msg: String,
     status_msg_time: u64,
 
@@ -51,6 +52,7 @@ impl<'a> Editor<'a> {
             row: Vec::new(),
             render: Vec::new(),
 
+            dirty: false,
             status_msg: String::from(""),
             status_msg_time: 0,
         }
@@ -65,7 +67,7 @@ impl<'a> Editor<'a> {
         //     default_panic(info);
         // }));
 
-        self.set_status_msg(format_args!("HELP: Ctrl-Q = quit"));
+        self.set_status_msg(format_args!("HELP: Ctrl-S = save | Ctrl-Q = quit"));
         self.edit_or_open();
 
         loop {
@@ -79,7 +81,7 @@ impl<'a> Editor<'a> {
 
 /* private func */
 impl Editor<'_> {
-    // process key
+    /* process key */
     fn process_key_press(&mut self) -> bool {
         let key = Keys::read_key();
         match key {
@@ -87,6 +89,10 @@ impl Editor<'_> {
                 print!("\x1b[2J\x1b[H");
                 return false;
             }
+            Keys::ENTER => {
+                //todo
+            }
+            Keys::CTL_S => self.save_file(),
             Keys::PAGE_UP => {
                 self.cy = self.row_off;
                 let mut times = self.cfg.screen_row;
@@ -112,14 +118,17 @@ impl Editor<'_> {
                     self.cx = self.row[self.cy as usize].len() as u32;
                 }
             }
+            Keys::BACKSPACE | Keys::CTL_H | Keys::DEL_KEY => {
+                // todo
+            }
             Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.move_cursor(key),
+            Keys::CTL_L | Keys::ESC => {}
             Keys::NORMAL(k) => self.insert_char(k),
-            _ => {}
+            // _ => {}
         };
         return true;
     }
 
-    // move cursor to right location
     fn move_cursor(&mut self, key: Keys) {
         match key {
             // up move
@@ -162,6 +171,29 @@ impl Editor<'_> {
         }
     }
 
+    fn insert_char(&mut self, c: u8) {
+        if self.cy > self.rows_num {
+            panic!("err cy");
+        }
+        if self.cy == self.rows_num {
+            self.row.push(Vec::new());
+            self.render.push(Vec::new());
+            self.rows_num = self.rows_num.wrapping_add(1);
+        }
+
+        let row = &mut self.row[self.cy as usize];
+        if self.cx <= row.len() as u32 {
+            row.insert(self.cx as usize, c);
+
+            let row = &self.row[self.cy as usize];
+            self.render[self.cy as usize] = self.get_render_vec(row);
+
+            self.dirty = true;
+            self.cx = self.cx.wrapping_add(1);
+        }
+    }
+
+    /* screen refresh */
     fn refresh_screen(&mut self) {
         self.scroll();
 
@@ -240,7 +272,7 @@ impl Editor<'_> {
     fn draw_status_bar(&mut self) {
         self.stdout.write_all(b"\x1b[7m").unwrap();
 
-        let status = format!("{:20} - {} lines", self.cfg.get_file_name(), self.rows_num);
+        let status = format!("{:20} - {} lines {}", self.cfg.get_file_name(), self.rows_num, self.get_dirty_status());
         let line = format!("{}/{}", self.cy + 1, self.rows_num);
         let spaces: String = repeat(' ').take(self.cfg.screen_col as usize - status.len() - line.len()).collect();
 
@@ -258,23 +290,45 @@ impl Editor<'_> {
         }
     }
 
+    fn set_status_msg(&mut self, args: Arguments<'_>) {
+        self.status_msg = format(args);
+        self.status_msg_time = get_current_time_secs();
+    }
+
+    /* file */
     fn edit_or_open(&mut self) {
         if self.cfg.file_name != "" {
-            let file = File::open(&self.cfg.file_name).unwrap();
+            let file = File::open(self.cfg.file_name).unwrap();
             let reader = BufReader::new(file);
 
             for line in reader.lines() {
                 // store raw content
-                let line = line.unwrap().replace("\r\n", "");
+                let line = line.unwrap().replace("\r", "").replace("\n", "");
                 self.row.push(line.as_bytes().to_vec());
                 // store render content
                 self.render.push(self.get_render_vec(&self.row[self.rows_num as usize]));
 
                 self.rows_num += 1;
             }
+            self.dirty = false;
         }
     }
 
+    fn save_file(&mut self) {
+        if self.cfg.file_name == "" { return; }
+        let mut file = File::create(&self.cfg.file_name).unwrap();
+        let mut bytes: u32 = 0;
+        for i in 0..self.rows_num {
+            file.write_all(&self.row[i as usize]).unwrap();
+            file.write_all(b"\n").unwrap();
+            bytes += self.row[i as usize].len() as u32 + 1;
+        }
+        file.flush().unwrap();
+        self.dirty = false;
+        self.set_status_msg(format_args!("{} bytes written to disk", bytes));
+    }
+
+    /* help */
     fn get_render_vec(&self, line: &Vec<u8>) -> Vec<u8> {
         let mut render_vec = Vec::new();
         for c in line {
@@ -303,27 +357,11 @@ impl Editor<'_> {
         }
     }
 
-    fn insert_char(&mut self, c: u8) {
-        if self.cy > self.rows_num {
-            panic!("err cy");
+    fn get_dirty_status(&self) -> &'static str {
+        if self.dirty {
+            "(modified)"
+        } else {
+            ""
         }
-        if self.cy == self.rows_num {
-            self.row.push(Vec::new());
-            self.render.push(Vec::new());
-            self.rows_num = self.rows_num.wrapping_add(1);
-        }
-
-        let row = &mut self.row[self.cy as usize];
-        if self.cx <= row.len() as u32 {
-            row.insert(self.cx as usize, c);
-
-            let row = &self.row[self.cy as usize];
-            self.render[self.cy as usize] = self.get_render_vec(row);
-        }
-    }
-
-    fn set_status_msg(&mut self, args: Arguments<'_>) {
-        self.status_msg = format(args);
-        self.status_msg_time = get_current_time_secs();
     }
 }
