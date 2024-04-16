@@ -143,7 +143,7 @@ impl Editor {
             }
             // down move
             Keys::ARROW_DOWN => {
-                self.cy = min(self.cy.wrapping_add(1), self.rows_num);
+                self.cy = min(self.cy.wrapping_add(1), self.rows_num - 1);
             }
             // left move
             Keys::ARROW_LEFT => {
@@ -160,7 +160,7 @@ impl Editor {
                 if self.cy < self.rows_num {
                     if self.cx < self.row[self.cy as usize].len() as u32 {
                         self.cx = self.cx.wrapping_add(1)
-                    } else { // move to left at the next of a line
+                    } else if self.cy < self.rows_num - 1 { // move to left at the next of a line
                         self.cx = 0;
                         self.cy += 1;
                     }
@@ -267,7 +267,7 @@ impl Editor {
         self.draw_status_msg();
 
         self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 1).as_bytes()
+            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 4).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
 
@@ -299,6 +299,7 @@ impl Editor {
             let file_row = r + self.row_off;
             // draw file content
             if file_row < self.rows_num {
+                self.stdout.write_all(format!("{:^3}", file_row + 1).as_bytes()).unwrap();
                 let row = &self.render[file_row as usize];
                 if self.col_off < row.len() as u32 {
                     let row = &row[
