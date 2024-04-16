@@ -1,6 +1,7 @@
-use std::cmp::{max, min};
+use std::cmp::{min};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Stdout, stdout, Write};
+use std::iter::repeat;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
 use crate::key::Keys;
@@ -141,13 +142,18 @@ impl Editor<'_> {
 
     fn refresh_screen(&mut self) {
         self.scroll();
+
         self.stdout.write_all(b"\x1b[?25l").unwrap();
         self.stdout.write_all(b"\x1b[H").unwrap();
+
         self.draw_rows();
+        self.draw_status_bar();
+
         self.stdout.write_all(
             format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 1).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
+
         self.stdout.flush().unwrap();
     }
 
@@ -204,10 +210,21 @@ impl Editor<'_> {
             // clean
             self.stdout.write_all(b"\x1b[K").unwrap();
             // to next line
-            if r < self.cfg.screen_row - 1 {
-                self.stdout.write_all(b"\r\n").unwrap();
-            }
+            self.stdout.write_all(b"\r\n").unwrap();
         }
+    }
+
+    fn draw_status_bar(&mut self) {
+        self.stdout.write_all(b"\x1b[7m").unwrap();
+
+        let status = format!("{:20} - {} lines", self.cfg.get_file_name(), self.rows_num);
+        let line = format!("{}/{}", self.cy + 1, self.rows_num);
+        let spaces: String = repeat(' ').take(self.cfg.screen_col as usize - status.len() - line.len()).collect();
+
+        self.stdout.write_all(status.as_bytes()).unwrap();
+        self.stdout.write_all(spaces.as_bytes()).unwrap();
+        self.stdout.write_all(line.as_bytes()).unwrap();
+        self.stdout.write_all(b"\x1b[m").unwrap();
     }
 
     fn edit_or_open(&mut self) {
