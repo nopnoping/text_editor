@@ -10,7 +10,7 @@ use crate::util::get_current_time_secs;
 
 const VERSION: &str = "0.0.1";
 const TABLE_STOP: u8 = 8;
-const QUIT_TIMES: u8 = 3;
+const QUIT_TIMES: u8 = 1;
 
 pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
@@ -99,9 +99,7 @@ impl Editor<'_> {
                 print!("\x1b[2J\x1b[H");
                 return false;
             }
-            Keys::ENTER => {
-                //todo
-            }
+            Keys::ENTER => self.insert_new_line(),
             Keys::CTL_S => self.save_file(),
             Keys::PAGE_UP => {
                 self.cy = self.row_off;
@@ -215,7 +213,7 @@ impl Editor<'_> {
 
             self.dirty = true;
             self.cx = self.cx.saturating_sub(1);
-        } else {
+        } else { // delete at the beginning of line
             let row2 = self.row[self.cy as usize].to_vec();
             let row1 = &mut self.row[(self.cy - 1) as usize];
             let row1_len = row1.len() as u32;
@@ -234,6 +232,29 @@ impl Editor<'_> {
         }
     }
 
+    fn insert_new_line(&mut self) {
+        if self.cx == 0 {
+            self.row.insert(self.cy as usize, Vec::new());
+            self.render.insert(self.cy as usize, Vec::new());
+        } else {
+            let row1 = &mut self.row[self.cy as usize];
+            let mut row2 = Vec::new();
+            while row1.len() > self.cx as usize {
+                row2.push(row1.remove(self.cx as usize));
+            }
+
+            let row1 = &self.row[self.cy as usize];
+            self.render[self.cy as usize] = self.get_render_vec(row1);
+
+            self.row.insert((self.cy + 1) as usize, row2.to_vec());
+            self.render.insert((self.cy + 1) as usize, self.get_render_vec(&row2));
+        }
+
+        self.dirty = true;
+        self.cx = 0;
+        self.cy = self.cy.wrapping_add(1);
+        self.rows_num = self.rows_num.wrapping_add(1);
+    }
     /* screen refresh */
     fn refresh_screen(&mut self) {
         self.scroll();
