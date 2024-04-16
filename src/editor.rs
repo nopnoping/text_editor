@@ -15,6 +15,7 @@ macro_rules! ctrl_key {
 pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
     cx: u32,
+    rx: u32,
     cy: u32,
     row_off: u32,
     col_off: u32,
@@ -32,6 +33,7 @@ impl<'a> Editor<'a> {
         Editor {
             stdout,
             cfg,
+            rx: 0,
             cx: 0,
             cy: 0,
             row_off: 0,
@@ -103,13 +105,13 @@ impl Editor<'_> {
                 } else if self.cy > 0 { // move to right at the end of a line
                     self.cy -= 1;
                     if self.cy < self.rows_num {
-                        self.cx = self.render[self.cy as usize].len() as u32;
+                        self.cx = self.row[self.cy as usize].len() as u32;
                     }
                 }
             }
             Keys::ARROW_RIGHT => {
                 if self.cy < self.rows_num {
-                    if self.cx < self.render[self.cy as usize].len() as u32 {
+                    if self.cx < self.row[self.cy as usize].len() as u32 {
                         self.cx = self.cx.wrapping_add(1)
                     } else { // move to left at the next of a line
                         self.cx = 0;
@@ -122,7 +124,7 @@ impl Editor<'_> {
 
         // check x
         if self.cy < self.rows_num {
-            self.cx = min(self.cx, (self.render[self.cy as usize].len()) as u32)
+            self.cx = min(self.cx, (self.row[self.cy as usize].len()) as u32)
         } else {
             self.cx = 0;
         }
@@ -134,13 +136,15 @@ impl Editor<'_> {
         self.stdout.write_all(b"\x1b[H").unwrap();
         self.draw_rows();
         self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.cx - self.col_off + 1).as_bytes()
+            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 1).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
         self.stdout.flush().unwrap();
     }
 
     fn scroll(&mut self) {
+        self.row_cx_to_rx();
+
         if self.cy < self.row_off {
             self.row_off = self.cy;
         }
@@ -149,12 +153,12 @@ impl Editor<'_> {
             self.row_off = self.cy - self.cfg.screen_row + 1;
         }
 
-        if self.cx < self.col_off {
-            self.col_off = self.cx;
+        if self.rx < self.col_off {
+            self.col_off = self.rx;
         }
 
-        if self.cx >= self.col_off + self.cfg.screen_col {
-            self.col_off = self.cx - self.cfg.screen_col + 1;
+        if self.rx >= self.col_off + self.cfg.screen_col {
+            self.col_off = self.rx - self.cfg.screen_col + 1;
         }
     }
 
@@ -214,7 +218,7 @@ impl Editor<'_> {
                 for c in line.as_bytes() {
                     if *c == '\t' as u8 {
                         render_vec.push(' ' as u8);
-                        while render_vec.len() % TABLE_STOP != 0 {
+                        while render_vec.len() % TABLE_STOP as usize != 0 {
                             render_vec.push(' ' as u8);
                         }
                     } else {
@@ -224,6 +228,19 @@ impl Editor<'_> {
                 self.render[self.rows_num as usize].write(&render_vec).unwrap();
 
                 self.rows_num += 1;
+            }
+        }
+    }
+
+    fn row_cx_to_rx(&mut self) {
+        self.rx = 0;
+        if self.cy < self.rows_num {
+            for i in 0..self.cx {
+                if self.row[self.cy as usize][i as usize] == '\t' as u8 {
+                    self.rx += TABLE_STOP as u32 - (self.rx % TABLE_STOP as u32)
+                } else {
+                    self.rx += 1;
+                }
             }
         }
     }
