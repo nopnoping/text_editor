@@ -12,7 +12,7 @@ const VERSION: &str = "0.0.1";
 const TABLE_STOP: u8 = 8;
 const QUIT_TIMES: u8 = 1;
 
-pub struct Editor<'a> {
+pub struct Editor {
     stdout: RawTerminal<Stdout>,
 
     cx: u32,
@@ -30,12 +30,12 @@ pub struct Editor<'a> {
     status_msg: String,
     status_msg_time: u64,
 
-    cfg: EditorCfg<'a>,
+    cfg: EditorCfg,
 }
 
 /* pub func */
-impl<'a> Editor<'a> {
-    pub fn new(cfg: EditorCfg<'a>) -> Self {
+impl Editor {
+    pub fn new(cfg: EditorCfg) -> Self {
         // raw mode
         let mut stdout = stdout().into_raw_mode().unwrap();
         stdout.flush().unwrap();
@@ -83,7 +83,7 @@ impl<'a> Editor<'a> {
 }
 
 /* private func */
-impl Editor<'_> {
+impl Editor {
     /* process key */
     fn process_key_press(&mut self) -> bool {
         let key = Keys::read_key();
@@ -360,7 +360,7 @@ impl Editor<'_> {
     /* file */
     fn edit_or_open(&mut self) {
         if self.cfg.file_name != "" {
-            let file = File::open(self.cfg.file_name).unwrap();
+            let file = File::open(&self.cfg.file_name).unwrap();
             let reader = BufReader::new(file);
 
             for line in reader.lines() {
@@ -377,7 +377,13 @@ impl Editor<'_> {
     }
 
     fn save_file(&mut self) {
-        if self.cfg.file_name == "" { return; }
+        if self.cfg.file_name == "" {
+            self.cfg.file_name = self.read_file_name();
+            if self.cfg.file_name == "" {
+                self.set_status_msg(format_args!("Save aborted"));
+                return;
+            }
+        } else {}
         let mut file = File::create(&self.cfg.file_name).unwrap();
         let mut bytes: u32 = 0;
         for i in 0..self.rows_num {
@@ -388,6 +394,38 @@ impl Editor<'_> {
         file.flush().unwrap();
         self.dirty = false;
         self.set_status_msg(format_args!("{} bytes written to disk", bytes));
+    }
+
+    fn read_file_name(&mut self) -> String {
+        let mut file_name = String::new();
+        loop {
+            self.set_status_msg(format_args!("Save as:{} (ESC to cancel)", &file_name));
+            self.refresh_screen();
+
+            let key = Keys::read_key();
+            match key {
+                Keys::BACKSPACE | Keys::DEL_KEY | Keys::CTL_H => {
+                    if file_name.len() != 0 {
+                        file_name.remove(file_name.len() - 1);
+                    }
+                }
+                Keys::ESC => {
+                    self.set_status_msg(format_args!(""));
+                    return String::new();
+                }
+                Keys::ENTER => {
+                    self.set_status_msg(format_args!(""));
+                    break;
+                }
+                Keys::NORMAL(c) => {
+                    if !c.is_ascii_control() && c < 128 {
+                        file_name.push(c as char);
+                    }
+                }
+                _ => {}
+            }
+        }
+        file_name
     }
 
     /* helper */
