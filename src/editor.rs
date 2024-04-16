@@ -255,6 +255,7 @@ impl Editor {
         self.cy = self.cy.wrapping_add(1);
         self.rows_num = self.rows_num.wrapping_add(1);
     }
+
     /* screen refresh */
     fn refresh_screen(&mut self) {
         self.scroll();
@@ -267,7 +268,7 @@ impl Editor {
         self.draw_status_msg();
 
         self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 4).as_bytes()
+            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 5).as_bytes()
         ).unwrap();
         self.stdout.write_all(b"\x1b[?25h").unwrap();
 
@@ -299,12 +300,12 @@ impl Editor {
             let file_row = r + self.row_off;
             // draw file content
             if file_row < self.rows_num {
-                self.stdout.write_all(format!("{:^3}", file_row + 1).as_bytes()).unwrap();
+                self.stdout.write_all(format!("{:^4}", file_row + 1).as_bytes()).unwrap();
                 let row = &self.render[file_row as usize];
                 if self.col_off < row.len() as u32 {
                     let row = &row[
                         self.col_off as usize
-                            ..min(row.len(), (self.col_off + self.cfg.screen_col) as usize)
+                            ..min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize)
                         ];
                     self.stdout.write(row).unwrap();
                 }

@@ -6,4 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-termion ="3.0.0"
+termion = "3.0.0"
+
+[[bin]]
+name = "my_vim"
+path = "src/bin/main.rs"
