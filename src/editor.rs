@@ -128,13 +128,10 @@ impl Editor<'_> {
                     self.cx = self.row[self.cy as usize].len() as u32;
                 }
             }
-            Keys::BACKSPACE | Keys::CTL_H | Keys::DEL_KEY => {
-                // todo
-            }
+            Keys::BACKSPACE | Keys::CTL_H | Keys::DEL_KEY => self.delete_char(),
             Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.move_cursor(key),
             Keys::CTL_L | Keys::ESC => {}
             Keys::NORMAL(k) => self.insert_char(k),
-            // _ => {}
         };
         self.quit_time = QUIT_TIMES;
         return true;
@@ -204,6 +201,20 @@ impl Editor<'_> {
         }
     }
 
+    fn delete_char(&mut self) {
+        if self.cy >= self.rows_num { return; }
+
+        let row = &mut self.row[self.cy as usize];
+        if self.cx > 0 && self.cx <= row.len() as u32 {
+            row.remove((self.cx - 1) as usize);
+
+            let row = &self.row[self.cy as usize];
+            self.render[self.cy as usize] = self.get_render_vec(row);
+
+            self.dirty = true;
+            self.cx = self.cx.saturating_sub(1);
+        }
+    }
     /* screen refresh */
     fn refresh_screen(&mut self) {
         self.scroll();
