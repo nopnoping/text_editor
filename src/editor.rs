@@ -203,9 +203,11 @@ impl Editor<'_> {
 
     fn delete_char(&mut self) {
         if self.cy >= self.rows_num { return; }
+        if self.cx == 0 && self.cy == 0 { return; }
 
-        let row = &mut self.row[self.cy as usize];
-        if self.cx > 0 && self.cx <= row.len() as u32 {
+        if self.cx > 0 {
+            let row = &mut self.row[self.cy as usize];
+            if self.cx > row.len() as u32 { panic!("err cx"); }
             row.remove((self.cx - 1) as usize);
 
             let row = &self.row[self.cy as usize];
@@ -213,8 +215,25 @@ impl Editor<'_> {
 
             self.dirty = true;
             self.cx = self.cx.saturating_sub(1);
+        } else {
+            let row2 = self.row[self.cy as usize].to_vec();
+            let row1 = &mut self.row[(self.cy - 1) as usize];
+            let row1_len = row1.len() as u32;
+            row1.write_all(&row2).unwrap();
+
+            self.row.remove(self.cy as usize);
+            self.render.remove(self.cy as usize);
+
+            let row1 = &self.row[(self.cy - 1) as usize];
+            self.render[(self.cy - 1) as usize] = self.get_render_vec(row1);
+
+            self.dirty = true;
+            self.cy = self.cy.saturating_sub(1);
+            self.cx = row1_len;
+            self.rows_num = self.rows_num.saturating_sub(1);
         }
     }
+
     /* screen refresh */
     fn refresh_screen(&mut self) {
         self.scroll();
