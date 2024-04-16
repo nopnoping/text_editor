@@ -85,7 +85,11 @@ impl Editor<'_> {
                 }
             }
             Keys::HOME_KEY => self.cx = 0,
-            Keys::END_KEY => self.cx = self.cfg.screen_col - 1,
+            Keys::END_KEY => {
+                if self.cy < self.rows_num {
+                    self.cx = self.row[self.cy as usize].len() as u32;
+                }
+            }
             Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.move_cursor(key),
             _ => {}
         };
