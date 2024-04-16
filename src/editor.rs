@@ -37,8 +37,10 @@ pub struct Editor<'a> {
 /* pub func */
 impl<'a> Editor<'a> {
     pub fn new(cfg: EditorCfg<'a>) -> Self {
+        // raw mode
         let mut stdout = stdout().into_raw_mode().unwrap();
         stdout.flush().unwrap();
+        // construct
         Editor {
             stdout,
             cfg,
@@ -61,6 +63,7 @@ impl<'a> Editor<'a> {
     pub fn run(&mut self) {
         self.set_status_msg(format_args!("HELP: Ctrl-Q = quit"));
         self.edit_or_open();
+
         loop {
             self.refresh_screen();
             if !self.process_key_press() {
