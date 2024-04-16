@@ -1,10 +1,12 @@
 use std::cmp::{min};
+use std::fmt::{Arguments, format};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Stdout, stdout, Write};
 use std::iter::repeat;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
 use crate::key::Keys;
+use crate::util::get_current_time_secs;
 
 const VERSION: &str = "0.0.1";
 const TABLE_STOP: u8 = 8;
@@ -15,14 +17,20 @@ macro_rules! ctrl_key {
 
 pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
+
     cx: u32,
     rx: u32,
     cy: u32,
     row_off: u32,
     col_off: u32,
+
     rows_num: u32,
     row: Vec<Vec<u8>>,
     render: Vec<Vec<u8>>,
+
+    status_msg: String,
+    status_msg_time: u64,
+
     cfg: EditorCfg<'a>,
 }
 
@@ -34,18 +42,24 @@ impl<'a> Editor<'a> {
         Editor {
             stdout,
             cfg,
+
             rx: 0,
             cx: 0,
             cy: 0,
             row_off: 0,
             col_off: 0,
+
             rows_num: 0,
             row: Vec::new(),
             render: Vec::new(),
+
+            status_msg: String::from(""),
+            status_msg_time: 0,
         }
     }
 
     pub fn run(&mut self) {
+        self.set_status_msg(format_args!("HELP: Ctrl-Q = quit"));
         self.edit_or_open();
         loop {
             self.refresh_screen();
@@ -148,6 +162,7 @@ impl Editor<'_> {
 
         self.draw_rows();
         self.draw_status_bar();
+        self.draw_status_msg();
 
         self.stdout.write_all(
             format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 1).as_bytes()
@@ -224,7 +239,15 @@ impl Editor<'_> {
         self.stdout.write_all(status.as_bytes()).unwrap();
         self.stdout.write_all(spaces.as_bytes()).unwrap();
         self.stdout.write_all(line.as_bytes()).unwrap();
-        self.stdout.write_all(b"\x1b[m").unwrap();
+
+        self.stdout.write_all(b"\x1b[m\r\n").unwrap();
+    }
+
+    fn draw_status_msg(&mut self) {
+        self.stdout.write_all(b"\x1b[K").unwrap();
+        if self.status_msg.len() > 0 && get_current_time_secs() - self.status_msg_time < 5 {
+            self.stdout.write_all(self.status_msg.as_bytes()).unwrap();
+        }
     }
 
     fn edit_or_open(&mut self) {
@@ -269,5 +292,10 @@ impl Editor<'_> {
                 }
             }
         }
+    }
+
+    fn set_status_msg(&mut self, args: Arguments<'_>) {
+        self.status_msg = format(args);
+        self.status_msg_time = get_current_time_secs();
     }
 }

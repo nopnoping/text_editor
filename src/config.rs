@@ -11,7 +11,7 @@ impl<'a> EditorCfg<'a> {
         let size = terminal_size().unwrap();
         EditorCfg {
             screen_col: size.0 as u32,
-            screen_row: (size.1 - 1) as u32,
+            screen_row: (size.1 - 2) as u32,
             file_name,
         }
     }
