@@ -10,6 +10,7 @@ use crate::util::get_current_time_secs;
 
 const VERSION: &str = "0.0.1";
 const TABLE_STOP: u8 = 8;
+const QUIT_TIMES: u8 = 3;
 
 pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
@@ -25,6 +26,7 @@ pub struct Editor<'a> {
     render: Vec<Vec<u8>>,
 
     dirty: bool,
+    quit_time: u8,
     status_msg: String,
     status_msg_time: u64,
 
@@ -53,6 +55,7 @@ impl<'a> Editor<'a> {
             render: Vec::new(),
 
             dirty: false,
+            quit_time: QUIT_TIMES,
             status_msg: String::from(""),
             status_msg_time: 0,
         }
@@ -86,6 +89,13 @@ impl Editor<'_> {
         let key = Keys::read_key();
         match key {
             Keys::QUIT => {
+                if self.dirty && self.quit_time > 0 {
+                    let q = self.quit_time;
+                    self.set_status_msg(format_args!("WARNING!!! File has unsaved changes. \
+                    Press Ctrl-Q {} more times to quit.", q));
+                    self.quit_time = self.quit_time.saturating_sub(1);
+                    return true;
+                }
                 print!("\x1b[2J\x1b[H");
                 return false;
             }
@@ -126,6 +136,7 @@ impl Editor<'_> {
             Keys::NORMAL(k) => self.insert_char(k),
             // _ => {}
         };
+        self.quit_time = QUIT_TIMES;
         return true;
     }
 
@@ -328,7 +339,7 @@ impl Editor<'_> {
         self.set_status_msg(format_args!("{} bytes written to disk", bytes));
     }
 
-    /* help */
+    /* helper */
     fn get_render_vec(&self, line: &Vec<u8>) -> Vec<u8> {
         let mut render_vec = Vec::new();
         for c in line {
