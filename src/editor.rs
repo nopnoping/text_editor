@@ -66,6 +66,7 @@ impl Editor<'_> {
                 return false;
             }
             Keys::PAGE_UP => {
+                self.cy = self.row_off;
                 let mut times = self.cfg.screen_row;
                 while times > 0 {
                     self.move_cursor(Keys::ARROW_UP);
@@ -73,6 +74,10 @@ impl Editor<'_> {
                 }
             }
             Keys::PAGE_DOWN => {
+                self.cy = self.row_off + self.cfg.screen_row - 1;
+                if self.cy > self.rows_num {
+                    self.cy = self.rows_num;
+                }
                 let mut times = self.cfg.screen_row;
                 while times > 0 {
                     self.move_cursor(Keys::ARROW_DOWN);
@@ -96,7 +101,7 @@ impl Editor<'_> {
             }
             // down move
             Keys::ARROW_DOWN => {
-                self.cy = min(self.cy.wrapping_add(1), max(self.rows_num, self.cfg.screen_row));
+                self.cy = min(self.cy.wrapping_add(1), self.rows_num);
             }
             // left move
             Keys::ARROW_LEFT => {
