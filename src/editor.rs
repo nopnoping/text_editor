@@ -11,10 +11,6 @@ use crate::util::get_current_time_secs;
 const VERSION: &str = "0.0.1";
 const TABLE_STOP: u8 = 8;
 
-macro_rules! ctrl_key {
-    ($k:expr) => {($k as u8) & 0x1f};
-}
-
 pub struct Editor<'a> {
     stdout: RawTerminal<Stdout>,
 
@@ -61,6 +57,14 @@ impl<'a> Editor<'a> {
     }
 
     pub fn run(&mut self) {
+        // let default_panic = std::panic::take_hook();
+        // std::panic::set_hook(Box::new(move |info| {
+        //     let mut stdout = stdout().into_raw_mode().unwrap();
+        //     stdout.flush().unwrap();
+        //     stdout.suspend_raw_mode().unwrap();
+        //     default_panic(info);
+        // }));
+
         self.set_status_msg(format_args!("HELP: Ctrl-Q = quit"));
         self.edit_or_open();
 
@@ -79,7 +83,7 @@ impl Editor<'_> {
     fn process_key_press(&mut self) -> bool {
         let key = Keys::read_key();
         match key {
-            Keys::NORMAL(k) if k == ctrl_key!('q') => {
+            Keys::QUIT => {
                 print!("\x1b[2J\x1b[H");
                 return false;
             }
@@ -109,6 +113,7 @@ impl Editor<'_> {
                 }
             }
             Keys::ARROW_UP | Keys::ARROW_DOWN | Keys::ARROW_LEFT | Keys::ARROW_RIGHT => self.move_cursor(key),
+            Keys::NORMAL(k) => self.insert_char(k),
             _ => {}
         };
         return true;
@@ -261,27 +266,28 @@ impl Editor<'_> {
             for line in reader.lines() {
                 // store raw content
                 let line = line.unwrap().replace("\r\n", "");
-                self.row.push(Vec::new());
-                self.row[self.rows_num as usize].write(line.as_bytes()).unwrap();
-
+                self.row.push(line.as_bytes().to_vec());
                 // store render content
-                self.render.push(Vec::new());
-                let mut render_vec = Vec::new();
-                for c in line.as_bytes() {
-                    if *c == '\t' as u8 {
-                        render_vec.push(' ' as u8);
-                        while render_vec.len() % TABLE_STOP as usize != 0 {
-                            render_vec.push(' ' as u8);
-                        }
-                    } else {
-                        render_vec.push(c.clone());
-                    }
-                }
-                self.render[self.rows_num as usize].write(&render_vec).unwrap();
+                self.render.push(self.get_render_vec(&self.row[self.rows_num as usize]));
 
                 self.rows_num += 1;
             }
         }
+    }
+
+    fn get_render_vec(&self, line: &Vec<u8>) -> Vec<u8> {
+        let mut render_vec = Vec::new();
+        for c in line {
+            if *c == '\t' as u8 {
+                render_vec.push(' ' as u8);
+                while render_vec.len() % TABLE_STOP as usize != 0 {
+                    render_vec.push(' ' as u8);
+                }
+            } else {
+                render_vec.push(c.clone());
+            }
+        }
+        render_vec
     }
 
     fn row_cx_to_rx(&mut self) {
@@ -294,6 +300,25 @@ impl Editor<'_> {
                     self.rx += 1;
                 }
             }
+        }
+    }
+
+    fn insert_char(&mut self, c: u8) {
+        if self.cy > self.rows_num {
+            panic!("err cy");
+        }
+        if self.cy == self.rows_num {
+            self.row.push(Vec::new());
+            self.render.push(Vec::new());
+            self.rows_num = self.rows_num.wrapping_add(1);
+        }
+
+        let row = &mut self.row[self.cy as usize];
+        if self.cx <= row.len() as u32 {
+            row.insert(self.cx as usize, c);
+
+            let row = &self.row[self.cy as usize];
+            self.render[self.cy as usize] = self.get_render_vec(row);
         }
     }
 

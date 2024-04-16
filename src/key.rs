@@ -1,6 +1,10 @@
 use std::io;
 use std::io::Read;
 
+macro_rules! ctrl_key {
+    ($k:expr) => {($k as u8) & 0x1f};
+}
+
 #[allow(non_camel_case_types)]
 pub enum Keys {
     ARROW_LEFT,
@@ -12,6 +16,7 @@ pub enum Keys {
     END_KEY,
     PAGE_UP,
     PAGE_DOWN,
+    QUIT,
     NORMAL(u8),
 }
 
@@ -63,6 +68,10 @@ impl Keys {
             }
 
             return Keys::NORMAL('\x1b' as u8);
+        }
+
+        if r == ctrl_key!('q') as char {
+            return Keys::QUIT;
         }
 
         return Keys::NORMAL(c[0]);
