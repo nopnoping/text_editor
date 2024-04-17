@@ -2,6 +2,7 @@
 #[derive(Clone)]
 pub enum Highlight {
     Normal,
+    String,
     Number,
     Match,
 }
@@ -12,6 +13,7 @@ impl Highlight {
             Highlight::Number => "\x1b[31m",
             Highlight::Normal => "\x1b[39m",
             Highlight::Match => "\x1b[34m",
+            Highlight::String => "\x1b[35m",
         }
     }
 
