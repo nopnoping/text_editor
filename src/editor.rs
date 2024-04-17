@@ -371,8 +371,13 @@ impl Editor {
                     }
                     self.stdout.write(r.as_bytes()).unwrap();
                 }
-            } else if self.rows_num == 0 && r == self.cfg.screen_row / 3 { // draw hello
-                let welcome = format!("My editor -- version:{}", VERSION);
+            } else if self.rows_num == 0
+                && (r == self.cfg.screen_row / 3 || r == self.cfg.screen_row / 3 + 1) { // draw hello
+                let mut welcome = format!("My editor -- version:{}", VERSION);
+                if r == self.cfg.screen_row / 3 + 1 {
+                    welcome = "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find".to_string();
+                }
+
                 let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
                 let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u32)) / 2;
                 if padding > 0 {
@@ -437,6 +442,8 @@ impl Editor {
                     self.rows_num += 1;
                 }
                 self.dirty = false;
+            } else {
+                self.set_status_msg(format_args!("File not exist. Open a empty file. Please use Ctrl-s to Save file!!"))
             }
         }
     }
