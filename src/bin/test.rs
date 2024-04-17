@@ -1,14 +1,12 @@
 fn main() {
-    let t = Test::A('b');
-
-    match t {
-        Test::A(t) if t == 'a' => {
-            print!("hello");
-        }
-        _ => { print!("www"); }
-    }
+    let t = Test::A;
+    let r: u8 = t as u8;
+    let a = 0_u8;
+    let t = r as Test;
 }
 
 enum Test {
-    A(char)
+    A = 0,
+    B,
+    C,
 }

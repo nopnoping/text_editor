@@ -25,6 +25,7 @@ pub struct Editor {
     rows_num: u32,
     row: Vec<Vec<u8>>,
     render: Vec<Vec<u8>>,
+    hl: Vec<Vec<u8>>,
 
     dirty: bool,
     quit_time: u8,
@@ -57,6 +58,7 @@ impl Editor {
             rows_num: 0,
             row: Vec::new(),
             render: Vec::new(),
+            hl: Vec::new(),
 
             dirty: false,
             quit_time: QUIT_TIMES,
@@ -422,19 +424,20 @@ impl Editor {
     /* file */
     fn edit_or_open(&mut self) {
         if self.cfg.file_name != "" {
-            let file = File::open(&self.cfg.file_name).unwrap();
-            let reader = BufReader::new(file);
+            if let Ok(file) = File::open(&self.cfg.file_name) {
+                let reader = BufReader::new(file);
 
-            for line in reader.lines() {
-                // store raw content
-                let line = line.unwrap().replace("\r", "").replace("\n", "");
-                self.row.push(line.as_bytes().to_vec());
-                // store render content
-                self.render.push(self.get_render_vec(&self.row[self.rows_num as usize]));
+                for line in reader.lines() {
+                    // store raw content
+                    let line = line.unwrap().replace("\r", "").replace("\n", "");
+                    self.row.push(line.as_bytes().to_vec());
+                    // store render content
+                    self.render.push(self.get_render_vec(&self.row[self.rows_num as usize]));
 
-                self.rows_num += 1;
+                    self.rows_num += 1;
+                }
+                self.dirty = false;
             }
-            self.dirty = false;
         }
     }
 
@@ -477,6 +480,11 @@ impl Editor {
         match keys {
             Keys::ARROW_UP => self.find_direction = -1,
             Keys::ARROW_DOWN => self.find_direction = 1,
+            Keys::ENTER => {
+                self.last_match = -1;
+                self.find_direction = 1;
+                return;
+            }
             _ => {
                 self.last_match = -1;
                 self.find_direction = 1;
