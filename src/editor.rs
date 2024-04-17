@@ -380,7 +380,7 @@ impl Editor {
 
     fn save_file(&mut self) {
         if self.cfg.file_name == "" {
-            self.cfg.file_name = self.read_file_name();
+            self.cfg.file_name = self.promotion_read(String::from("Save as:{} (ESC to cancel)"));
             if self.cfg.file_name == "" {
                 self.set_status_msg(format_args!("Save aborted"));
                 return;
@@ -398,17 +398,17 @@ impl Editor {
         self.set_status_msg(format_args!("{} bytes written to disk", bytes));
     }
 
-    fn read_file_name(&mut self) -> String {
-        let mut file_name = String::new();
+    fn promotion_read(&mut self, s: String) -> String {
+        let mut user_input = String::new();
         loop {
-            self.set_status_msg(format_args!("Save as:{} (ESC to cancel)", &file_name));
+            self.set_status_msg(format_args!("{}", &s.replace("{}", &user_input)));
             self.refresh_screen();
 
             let key = Keys::read_key();
             match key {
                 Keys::BACKSPACE | Keys::DEL_KEY | Keys::CTL_H => {
-                    if file_name.len() != 0 {
-                        file_name.remove(file_name.len() - 1);
+                    if user_input.len() != 0 {
+                        user_input.remove(user_input.len() - 1);
                     }
                 }
                 Keys::ESC => {
@@ -421,13 +421,13 @@ impl Editor {
                 }
                 Keys::NORMAL(c) => {
                     if !c.is_ascii_control() && c < 128 {
-                        file_name.push(c as char);
+                        user_input.push(c as char);
                     }
                 }
                 _ => {}
             }
         }
-        file_name
+        user_input
     }
 
     /* helper */
