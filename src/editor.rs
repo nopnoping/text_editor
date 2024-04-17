@@ -3,6 +3,7 @@ use std::fmt::{Arguments, format};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Stdout, stdout, Write};
 use std::iter::repeat;
+use memchr::memmem;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
 use crate::key::Keys;
@@ -29,6 +30,9 @@ pub struct Editor {
     quit_time: u8,
     status_msg: String,
     status_msg_time: u64,
+
+    last_match: i64,
+    find_direction: i8,
 
     cfg: EditorCfg,
 }
@@ -58,6 +62,9 @@ impl Editor {
             quit_time: QUIT_TIMES,
             status_msg: String::from(""),
             status_msg_time: 0,
+
+            last_match: 0,
+            find_direction: 1,
         }
     }
 
@@ -70,7 +77,7 @@ impl Editor {
         //     default_panic(info);
         // }));
 
-        self.set_status_msg(format_args!("HELP: Ctrl-S = save | Ctrl-Q = quit"));
+        self.set_status_msg(format_args!("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find"));
         self.edit_or_open();
 
         loop {
@@ -101,6 +108,7 @@ impl Editor {
             }
             Keys::ENTER => self.insert_new_line(),
             Keys::CTL_S => self.save_file(),
+            Keys::CTL_F => self.find_world(),
             Keys::PAGE_UP => {
                 self.cy = self.row_off;
                 let mut times = self.cfg.screen_row;
@@ -256,6 +264,41 @@ impl Editor {
         self.rows_num = self.rows_num.wrapping_add(1);
     }
 
+    /* promotion read for status bar*/
+    fn promotion_read<F>(&mut self, s: String, callback: F) -> String
+        where
+            F: Fn(&mut Self, &Keys, &str),
+    {
+        let mut user_input = String::new();
+        loop {
+            self.set_status_msg(format_args!("{}", &s.replace("{}", &user_input)));
+            self.refresh_screen();
+
+            let key = Keys::read_key();
+            match key {
+                Keys::BACKSPACE | Keys::DEL_KEY | Keys::CTL_H => {
+                    if user_input.len() != 0 {
+                        user_input.remove(user_input.len() - 1);
+                    }
+                }
+                Keys::ESC => {
+                    self.set_status_msg(format_args!(""));
+                    callback(self, &key, &user_input);
+                    return String::new();
+                }
+                Keys::ENTER => {
+                    self.set_status_msg(format_args!(""));
+                    callback(self, &key, &user_input);
+                    break;
+                }
+                Keys::NORMAL(c) if !c.is_ascii_control() && c < 128 => user_input.push(c as char),
+                _ => {}
+            }
+            callback(self, &key, &user_input);
+        }
+        user_input
+    }
+
     /* screen refresh */
     fn refresh_screen(&mut self) {
         self.scroll();
@@ -380,7 +423,7 @@ impl Editor {
 
     fn save_file(&mut self) {
         if self.cfg.file_name == "" {
-            self.cfg.file_name = self.promotion_read(String::from("Save as:{} (ESC to cancel)"));
+            self.cfg.file_name = self.promotion_read(String::from("Save as: {} (ESC to cancel)"), |_, _, _| {});
             if self.cfg.file_name == "" {
                 self.set_status_msg(format_args!("Save aborted"));
                 return;
@@ -398,36 +441,44 @@ impl Editor {
         self.set_status_msg(format_args!("{} bytes written to disk", bytes));
     }
 
-    fn promotion_read(&mut self, s: String) -> String {
-        let mut user_input = String::new();
-        loop {
-            self.set_status_msg(format_args!("{}", &s.replace("{}", &user_input)));
-            self.refresh_screen();
+    fn find_world(&mut self) {
+        let save_cx = self.cx;
+        let save_cy = self.cy;
+        let save_col_off = self.col_off;
+        let save_row_off = self.row_off;
 
-            let key = Keys::read_key();
-            match key {
-                Keys::BACKSPACE | Keys::DEL_KEY | Keys::CTL_H => {
-                    if user_input.len() != 0 {
-                        user_input.remove(user_input.len() - 1);
-                    }
-                }
-                Keys::ESC => {
-                    self.set_status_msg(format_args!(""));
-                    return String::new();
-                }
-                Keys::ENTER => {
-                    self.set_status_msg(format_args!(""));
-                    break;
-                }
-                Keys::NORMAL(c) => {
-                    if !c.is_ascii_control() && c < 128 {
-                        user_input.push(c as char);
-                    }
-                }
-                _ => {}
+        let world = self.promotion_read(String::from("Search: {} (ESC to cancel)"), Editor::find_world_callback);
+        if world == "" {
+            self.cx = save_cx;
+            self.cy = save_cy;
+            self.col_off = save_col_off;
+            self.row_off = save_row_off;
+        }
+    }
+
+    fn find_world_callback(&mut self, keys: &Keys, world: &str) {
+        match keys {
+            Keys::ARROW_UP => self.find_direction = -1,
+            Keys::ARROW_DOWN => self.find_direction = 1,
+            _ => {
+                self.last_match = -1;
+                self.find_direction = 1;
             }
         }
-        user_input
+
+        let mut cur = self.last_match;
+        for _ in 0..self.rows_num {
+            cur += self.find_direction as i64;
+            if cur >= self.rows_num as i64 { cur = 0 };
+            if cur < 0 { cur = self.rows_num as i64 - 1; }
+            if let Option::Some(index) = memmem::find(&self.row[cur as usize], world.as_bytes()) {
+                self.last_match = cur;
+                self.cy = cur as u32;
+                self.cx = index as u32;
+                self.row_off = self.rows_num;
+                break;
+            }
+        }
     }
 
     /* helper */

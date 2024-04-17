@@ -21,6 +21,7 @@ pub enum Keys {
     CTL_H,
     CTL_L,
     CTL_S,
+    CTL_F,
     ENTER,
     ESC,
     NORMAL(u8),
@@ -89,6 +90,9 @@ impl Keys {
         }
         if r == ctrl_key!('s') as char {
             return Keys::CTL_S;
+        }
+        if r == ctrl_key!('f') as char {
+            return Keys::CTL_F;
         }
 
         if r == '\r' {
