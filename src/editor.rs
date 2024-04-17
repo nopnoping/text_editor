@@ -515,17 +515,26 @@ impl Editor {
         }
     }
 
+    fn get_color_highlight(&self, line: &Vec<u8>) -> Vec<Highlight> {
+        let mut r = Vec::new();
+        for c in line {
+            if c.is_ascii_digit() { r.push(Highlight::Number); } else { r.push(Highlight::Normal); }
+        }
+        r
+    }
+
     /* row modify helper */
     fn insert_new_row(&mut self, index: usize, line: Vec<u8>) {
         self.row.insert(index, line);
         self.render.insert(index, self.get_render_vec(&self.row[index]));
+        self.hl.insert(index, self.get_color_highlight(&self.render[index]));
         self.rows_num += 1;
     }
 
     fn insert_u8_to_row(&mut self, y: usize, x: usize, c: u8) -> Result<(), &'static str> {
         if x > self.row[y].len() { return Err("err cx"); }
         self.row[y].insert(x, c);
-        self.render[y] = self.get_render_vec(&self.row[y]);
+        self.update_render_and_hl(y);
         Ok(())
     }
 
@@ -534,13 +543,14 @@ impl Editor {
         for c in line {
             self.row[y].push(c);
         }
-        self.render[y] = self.get_render_vec(&self.row[y]);
+        self.update_render_and_hl(y);
         old_len
     }
 
     fn delete_row(&mut self, index: usize) -> Vec<u8> {
         let r = self.row.remove(index);
         self.render.remove(index);
+        self.hl.remove(index);
         self.rows_num -= 1;
         r
     }
@@ -548,14 +558,19 @@ impl Editor {
     fn delete_u8_of_row(&mut self, y: usize, x: usize) -> Result<(), &'static str> {
         if x < 0 || x >= self.row[y].len() { return Err("err x"); }
         self.row[y].remove(x);
-        self.render[y] = self.get_render_vec(&self.row[y]);
+        self.update_render_and_hl(y);
         Ok(())
     }
 
     fn delete_content_to_end(&mut self, index: usize, start: usize) -> Vec<u8> {
         let len = self.row[index].len();
         let r = self.row[index].drain(start..len).collect();
-        self.render[index] = self.get_render_vec(&self.row[index]);
+        self.update_render_and_hl(index);
         r
+    }
+
+    fn update_render_and_hl(&mut self, y: usize) {
+        self.render[y] = self.get_render_vec(&self.row[y]);
+        self.hl[y] = self.get_color_highlight(&self.render[y]);
     }
 }
