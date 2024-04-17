@@ -6,6 +6,7 @@ pub struct Syntax {
     pub file_type: &'static str,
     pub file_math: Vec<&'static str>,
     single_comment_start: &'static str,
+    keyword: Vec<&'static str>,
 }
 
 lazy_static! {
@@ -14,6 +15,10 @@ lazy_static! {
             file_type: "c",
             file_math: vec![".c", ".h", ".cpp"],
             single_comment_start : "//",
+            keyword: vec!["switch", "if", "while", "for", "break", "continue", "return", "else",
+                "struct", "union", "typedef", "static", "enum", "class", "case",
+                "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|",
+                "void|"]
         }
     ];
 }
@@ -66,6 +71,29 @@ impl Syntax {
                 prev_sep = false;
                 continue;
             }
+
+            // keyword
+            if prev_sep {
+                for keyword in self.keyword.iter() {
+                    let mut len = keyword.len();
+                    let mut k2 = false;
+                    if keyword.as_bytes()[len - 1] == '|' as u8 {
+                        len -= 1;
+                        k2 = true;
+                    }
+
+                    if i + len < line.len() && (i + len == line.len() || util::is_separator(line[i + len])) {
+                        if &line[i..i + len] == keyword[0..len].as_bytes() {
+                            for _ in 0..len {
+                                if k2 { r.push(Highlight::Keyword2); } else { r.push(Highlight::Keyword1); }
+                                i += 1;
+                            }
+                            continue;
+                        }
+                    }
+                }
+            }
+
 
             r.push(Highlight::Normal);
             i += 1;

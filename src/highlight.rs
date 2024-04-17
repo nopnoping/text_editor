@@ -3,6 +3,8 @@
 pub enum Highlight {
     Normal,
     Comment,
+    Keyword1,
+    Keyword2,
     String,
     Number,
     Match,
@@ -16,6 +18,8 @@ impl Highlight {
             Highlight::Normal => "\x1b[39m",
             Highlight::Match => "\x1b[34m",
             Highlight::String => "\x1b[35m",
+            Highlight::Keyword1 => "\x1b[33m",
+            Highlight::Keyword2 => "\x1b[32m",
         }
     }
 
