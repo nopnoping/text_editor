@@ -270,49 +270,13 @@ impl Editor {
     fn draw_rows(&mut self) {
         for r in 0..self.cfg.screen_row {
             let file_row = r + self.row_off;
-            // draw file content
-            if file_row < self.rows_num {
-                // line number
-                self.stdout.write_all(format!("{:^4}", file_row + 1).as_bytes()).unwrap();
-                // file row content
-                let row = &self.render[file_row as usize];
-                if self.col_off < row.len() as u32 {
-                    let row = &row[
-                        self.col_off as usize
-                            ..min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize)
-                        ];
-                    // syntax highlighting
-                    let mut r = String::new();
-                    for c in row {
-                        if c.is_ascii_digit() {
-                            r.push_str("\x1b[31m");
-                            r.push(*c as char);
-                            r.push_str("\x1b[39m");
-                        } else {
-                            r.push(*c as char)
-                        }
-                    }
-                    self.stdout.write(r.as_bytes()).unwrap();
-                }
-            } else if self.rows_num == 0
-                && (r == self.cfg.screen_row / 3 || r == self.cfg.screen_row / 3 + 1) { // draw hello
-                let mut welcome = format!("My editor -- version:{}", VERSION);
-                if r == self.cfg.screen_row / 3 + 1 {
-                    welcome = "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find".to_string();
-                }
 
-                let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
-                let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u32)) / 2;
-                if padding > 0 {
-                    self.stdout.write_all(b"~").unwrap();
-                    padding -= 1;
-                }
-                while padding > 0 {
-                    self.stdout.write_all(b" ").unwrap();
-                    padding -= 1;
-                }
-                self.stdout.write_all(welcome.as_bytes()).unwrap();
-            } else { // draw empty line
+            if file_row < self.rows_num {
+                self.draw_file(file_row);
+            } else if self.rows_num == 0
+                && (r == self.cfg.screen_row / 3 || r == self.cfg.screen_row / 3 + 1) {
+                self.draw_hello(r);
+            } else {
                 self.stdout.write_all(b"~").unwrap();
             }
 
@@ -321,6 +285,50 @@ impl Editor {
             // to next line
             self.stdout.write_all(b"\r\n").unwrap();
         }
+    }
+
+    fn draw_file(&mut self, file_row: u32) {
+        // line number
+        self.stdout.write_all(format!("{:^4}", file_row + 1).as_bytes()).unwrap();
+        // file row content
+        let row = &self.render[file_row as usize];
+        if self.col_off < row.len() as u32 {
+            let row = &row[
+                self.col_off as usize
+                    ..min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize)
+                ];
+            // syntax highlighting
+            let mut r = String::new();
+            for c in row {
+                if c.is_ascii_digit() {
+                    r.push_str("\x1b[31m");
+                    r.push(*c as char);
+                    r.push_str("\x1b[39m");
+                } else {
+                    r.push(*c as char)
+                }
+            }
+            self.stdout.write(r.as_bytes()).unwrap();
+        }
+    }
+
+    fn draw_hello(&mut self, r: u32) {
+        let mut welcome = format!("My editor -- version:{}", VERSION);
+        if r == self.cfg.screen_row / 3 + 1 {
+            welcome = "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find".to_string();
+        }
+
+        let welcome = &welcome[..min(welcome.len(), self.cfg.screen_col as usize)];
+        let mut padding = (self.cfg.screen_col.wrapping_sub(welcome.len() as u32)) / 2;
+        if padding > 0 {
+            self.stdout.write_all(b"~").unwrap();
+            padding -= 1;
+        }
+        while padding > 0 {
+            self.stdout.write_all(b" ").unwrap();
+            padding -= 1;
+        }
+        self.stdout.write_all(welcome.as_bytes()).unwrap();
     }
 
     fn draw_status_bar(&mut self) {
