@@ -2,6 +2,7 @@
 #[derive(Clone)]
 pub enum Highlight {
     Normal,
+    Comment,
     String,
     Number,
     Match,
@@ -11,6 +12,7 @@ impl Highlight {
     pub fn to_color(&self) -> &'static str {
         match self {
             Highlight::Number => "\x1b[31m",
+            Highlight::Comment => "\x1b[36m",
             Highlight::Normal => "\x1b[39m",
             Highlight::Match => "\x1b[34m",
             Highlight::String => "\x1b[35m",

@@ -5,15 +5,17 @@ use crate::util;
 pub struct Syntax {
     pub file_type: &'static str,
     pub file_math: Vec<&'static str>,
+    single_comment_start: &'static str,
 }
 
 lazy_static! {
-pub static ref HLDB: Vec<Syntax> = vec![
-    Syntax {
-        file_type: "c",
-        file_math: vec![".c", ".h", ".cpp"],
-    }
-];
+    pub static ref HLDB: Vec<Syntax> = vec![
+        Syntax {
+            file_type: "c",
+            file_math: vec![".c", ".h", ".cpp"],
+            single_comment_start : "//",
+        }
+    ];
 }
 
 impl Syntax {
@@ -25,10 +27,23 @@ impl Syntax {
         let mut in_string = 0_u8;
         while i < line.len() {
             let c = line[i];
+            // single comment
+            if in_string == 0 && i + 1 < line.len() && &line[i..i + 2] == self.single_comment_start.as_bytes() {
+                while i < line.len() {
+                    r.push(Highlight::Comment);
+                    i += 1;
+                }
+                break;
+            }
 
             // string highlight
             if in_string > 0 {
                 r.push(Highlight::String);
+                if c == '\\' as u8 && i < line.len() - 1 {
+                    r.push(Highlight::String);
+                    i += 2;
+                    continue;
+                }
                 if c == in_string { in_string = 0; }
                 i += 1;
                 prev_sep = true;
