@@ -310,9 +310,13 @@ impl Editor {
         self.draw_status_bar();
         self.draw_status_msg();
 
-        self.stdout.write_all(
-            format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 5).as_bytes()
-        ).unwrap();
+        if self.rows_num == 0 {
+            self.stdout.write_all(b"\x1b[H").unwrap();
+        } else {
+            self.stdout.write_all(
+                format!("\x1b[{};{}H", self.cy - self.row_off + 1, self.rx - self.col_off + 5).as_bytes()
+            ).unwrap();
+        }
         self.stdout.write_all(b"\x1b[?25h").unwrap();
 
         self.stdout.flush().unwrap();
