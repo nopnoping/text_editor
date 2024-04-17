@@ -1,3 +1,4 @@
+#[derive(PartialEq)]
 pub enum Highlight {
     Normal,
     Number,
@@ -23,9 +24,12 @@ impl Highlight {
         let mut hl_str = String::new();
 
         for i in start..end {
-            hl_str.push_str(hl[i].to_color());
+            if i == start || hl[i] != hl[i - 1] {
+                hl_str.push_str(hl[i].to_color());
+            }
             hl_str.push(line[i] as char);
         }
+
         hl_str.push_str(Highlight::Normal.to_color());
         hl_str
     }

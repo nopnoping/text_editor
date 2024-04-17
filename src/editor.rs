@@ -512,22 +512,11 @@ impl Editor {
         }
     }
 
-    fn highlight_line(&self, line: &Vec<u8>, hl: &Vec<Highlight>, start: usize, end: usize) -> String {
-        let mut hl_str = String::new();
-
-        for i in start..end {
-            hl_str.push_str(hl[i].to_color());
-            hl_str.push(line[i] as char);
-        }
-        hl_str.push_str(Highlight::Normal.to_color());
-        hl_str
-    }
-
     /* row modify helper */
     fn insert_new_row(&mut self, index: usize, line: Vec<u8>) {
         self.row.insert(index, line);
         self.render.insert(index, self.get_render_vec(&self.row[index]));
-        self.hl.insert(index, self.get_color_highlight(&self.render[index]));
+        self.hl.insert(index, Highlight::get_color_highlight(&self.render[index]));
         self.rows_num += 1;
     }
 
@@ -556,7 +545,7 @@ impl Editor {
     }
 
     fn delete_u8_of_row(&mut self, y: usize, x: usize) -> Result<(), &'static str> {
-        if x < 0 || x >= self.row[y].len() { return Err("err x"); }
+        if x >= self.row[y].len() { return Err("err x"); }
         self.row[y].remove(x);
         self.update_render_and_hl(y);
         Ok(())
