@@ -29,20 +29,19 @@ pub enum Keys {
 
 impl Keys {
     pub fn read_key() -> Keys {
-        let mut c = [0; 1];
-        io::stdin().lock().read(&mut c).unwrap();
+        let mut c = [0; 4];
+        let size = io::stdin().lock().read(&mut c).unwrap();
         let r = c[0] as char;
 
         if r == '\x1b' {
-            io::stdin().lock().read(&mut c).unwrap();
-            let r1 = c[0] as char;
-            io::stdin().lock().read(&mut c).unwrap();
-            let r2 = c[0] as char;
+            if size < 3 { return Keys::ESC; }
+            let r1 = c[1] as char;
+            let r2 = c[2] as char;
 
             if r1 == '[' {
-                if r2 >= '0' && r2 <= '9' {
+                if r2 >= '0' && r2 <= '9' && size >= 4 {
                     io::stdin().lock().read(&mut c).unwrap();
-                    let r3 = c[0] as char;
+                    let r3 = c[3] as char;
                     if r3 == '~' {
                         return match r2 {
                             '1' => Keys::HOME_KEY,

@@ -1,10 +1,5 @@
 fn main() {
-    let mut vec = vec![1, 2, 3];
-    vec.clear();
+    let mut vec = vec![0; 1023];
 
-    vec.push(4);
-    vec.push(5);
-    vec.push(6);
-
-    println!("{:?}", vec[0]);
+    println!("{:?}", vec.remove(0));
 }
