@@ -1,7 +1,9 @@
 #[derive(PartialEq)]
+#[derive(Clone)]
 pub enum Highlight {
     Normal,
     Number,
+    Match,
 }
 
 impl Highlight {
@@ -9,6 +11,7 @@ impl Highlight {
         match self {
             Highlight::Number => "\x1b[31m",
             Highlight::Normal => "\x1b[39m",
+            Highlight::Match => "\x1b[34m",
         }
     }
 
@@ -32,5 +35,12 @@ impl Highlight {
 
         hl_str.push_str(Highlight::Normal.to_color());
         hl_str
+    }
+
+    pub fn copy_highlight(des: &mut Vec<Highlight>, src: &Vec<Highlight>) {
+        des.clear();
+        for h in src {
+            des.push(h.clone());
+        }
     }
 }

@@ -35,6 +35,7 @@ pub struct Editor {
 
     last_match: i64,
     find_direction: i8,
+    saved_match_hl: Vec<Highlight>,
 
     cfg: EditorCfg,
 }
@@ -66,8 +67,9 @@ impl Editor {
             status_msg: String::from(""),
             status_msg_time: 0,
 
-            last_match: 0,
+            last_match: -1,
             find_direction: 1,
+            saved_match_hl: Vec::new(),
         }
     }
 
@@ -446,10 +448,14 @@ impl Editor {
     }
 
     fn find_world_callback(&mut self, keys: &Keys, world: &str) {
+        if self.last_match != -1 {
+            Highlight::copy_highlight(&mut self.hl[self.last_match as usize], &self.saved_match_hl);
+        }
+
         match keys {
             Keys::ARROW_UP => self.find_direction = -1,
             Keys::ARROW_DOWN => self.find_direction = 1,
-            Keys::ENTER => {
+            Keys::ENTER | Keys::ESC => {
                 self.last_match = -1;
                 self.find_direction = 1;
                 return;
@@ -467,9 +473,15 @@ impl Editor {
             if cur < 0 { cur = self.rows_num as i64 - 1; }
             if let Option::Some(index) = memmem::find(&self.row[cur as usize], world.as_bytes()) {
                 self.last_match = cur;
+                Highlight::copy_highlight(&mut self.saved_match_hl, &self.hl[cur as usize]);
+
                 self.cy = cur as u32;
                 self.cx = index as u32;
                 self.row_off = self.rows_num;
+                self.row_cx_to_rx();
+                for i in 0..world.len() {
+                    self.hl[cur as usize][self.rx as usize + i] = Highlight::Match;
+                }
                 break;
             }
         }
