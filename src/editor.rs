@@ -1,5 +1,4 @@
 use std::cmp::{min};
-use std::f32::consts::E;
 use std::fmt::{Arguments, format};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Stdout, stdout, Write};
@@ -293,21 +292,11 @@ impl Editor {
         // file row content
         let row = &self.render[file_row as usize];
         if self.col_off < row.len() as u32 {
-            let row = &row[
-                self.col_off as usize
-                    ..min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize)
-                ];
             // syntax highlighting
-            let mut r = String::new();
-            for c in row {
-                if c.is_ascii_digit() {
-                    r.push_str("\x1b[31m");
-                    r.push(*c as char);
-                    r.push_str("\x1b[39m");
-                } else {
-                    r.push(*c as char)
-                }
-            }
+            let start = self.col_off as usize;
+            let end = min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize);
+            let r = Highlight::highlight_line(row, &self.hl[file_row as usize], start, end);
+
             self.stdout.write(r.as_bytes()).unwrap();
         }
     }
@@ -523,12 +512,15 @@ impl Editor {
         }
     }
 
-    fn get_color_highlight(&self, line: &Vec<u8>) -> Vec<Highlight> {
-        let mut r = Vec::new();
-        for c in line {
-            if c.is_ascii_digit() { r.push(Highlight::Number); } else { r.push(Highlight::Normal); }
+    fn highlight_line(&self, line: &Vec<u8>, hl: &Vec<Highlight>, start: usize, end: usize) -> String {
+        let mut hl_str = String::new();
+
+        for i in start..end {
+            hl_str.push_str(hl[i].to_color());
+            hl_str.push(line[i] as char);
         }
-        r
+        hl_str.push_str(Highlight::Normal.to_color());
+        hl_str
     }
 
     /* row modify helper */
@@ -579,6 +571,6 @@ impl Editor {
 
     fn update_render_and_hl(&mut self, y: usize) {
         self.render[y] = self.get_render_vec(&self.row[y]);
-        self.hl[y] = self.get_color_highlight(&self.render[y]);
+        self.hl[y] = Highlight::get_color_highlight(&self.render[y]);
     }
 }
