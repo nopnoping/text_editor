@@ -347,14 +347,27 @@ impl Editor {
             let file_row = r + self.row_off;
             // draw file content
             if file_row < self.rows_num {
+                // line number
                 self.stdout.write_all(format!("{:^4}", file_row + 1).as_bytes()).unwrap();
+                // file row content
                 let row = &self.render[file_row as usize];
                 if self.col_off < row.len() as u32 {
                     let row = &row[
                         self.col_off as usize
                             ..min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize)
                         ];
-                    self.stdout.write(row).unwrap();
+                    // syntax highlighting
+                    let mut r = String::new();
+                    for c in row {
+                        if c.is_ascii_digit() {
+                            r.push_str("\x1b[31m");
+                            r.push(*c as char);
+                            r.push_str("\x1b[39m");
+                        } else {
+                            r.push(*c as char)
+                        }
+                    }
+                    self.stdout.write(r.as_bytes()).unwrap();
                 }
             } else if self.rows_num == 0 && r == self.cfg.screen_row / 3 { // draw hello
                 let welcome = format!("My editor -- version:{}", VERSION);
