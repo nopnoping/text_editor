@@ -1,4 +1,5 @@
 use std::cmp::{min};
+use std::f32::consts::E;
 use std::fmt::{Arguments, format};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Stdout, stdout, Write};
@@ -6,6 +7,7 @@ use std::iter::repeat;
 use memchr::memmem;
 use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
+use crate::highlight::Highlight;
 use crate::key::Keys;
 use crate::util::get_current_time_secs;
 
@@ -25,7 +27,7 @@ pub struct Editor {
     rows_num: u32,
     row: Vec<Vec<u8>>,
     render: Vec<Vec<u8>>,
-    hl: Vec<Vec<u8>>,
+    hl: Vec<Vec<Highlight>>,
 
     dirty: bool,
     quit_time: u8,
@@ -185,85 +187,6 @@ impl Editor {
         } else {
             self.cx = 0;
         }
-    }
-
-    fn insert_char(&mut self, c: u8) {
-        if self.cy > self.rows_num {
-            panic!("err cy");
-        }
-        if self.cy == self.rows_num {
-            self.row.push(Vec::new());
-            self.render.push(Vec::new());
-            self.rows_num = self.rows_num.wrapping_add(1);
-        }
-
-        let row = &mut self.row[self.cy as usize];
-        if self.cx <= row.len() as u32 {
-            row.insert(self.cx as usize, c);
-
-            let row = &self.row[self.cy as usize];
-            self.render[self.cy as usize] = self.get_render_vec(row);
-
-            self.dirty = true;
-            self.cx = self.cx.wrapping_add(1);
-        }
-    }
-
-    fn delete_char(&mut self) {
-        if self.cy >= self.rows_num { return; }
-        if self.cx == 0 && self.cy == 0 { return; }
-
-        if self.cx > 0 {
-            let row = &mut self.row[self.cy as usize];
-            if self.cx > row.len() as u32 { panic!("err cx"); }
-            row.remove((self.cx - 1) as usize);
-
-            let row = &self.row[self.cy as usize];
-            self.render[self.cy as usize] = self.get_render_vec(row);
-
-            self.dirty = true;
-            self.cx = self.cx.saturating_sub(1);
-        } else { // delete at the beginning of line
-            let row2 = self.row[self.cy as usize].to_vec();
-            let row1 = &mut self.row[(self.cy - 1) as usize];
-            let row1_len = row1.len() as u32;
-            row1.write_all(&row2).unwrap();
-
-            self.row.remove(self.cy as usize);
-            self.render.remove(self.cy as usize);
-
-            let row1 = &self.row[(self.cy - 1) as usize];
-            self.render[(self.cy - 1) as usize] = self.get_render_vec(row1);
-
-            self.dirty = true;
-            self.cy = self.cy.saturating_sub(1);
-            self.cx = row1_len;
-            self.rows_num = self.rows_num.saturating_sub(1);
-        }
-    }
-
-    fn insert_new_line(&mut self) {
-        if self.cx == 0 {
-            self.row.insert(self.cy as usize, Vec::new());
-            self.render.insert(self.cy as usize, Vec::new());
-        } else {
-            let row1 = &mut self.row[self.cy as usize];
-            let mut row2 = Vec::new();
-            while row1.len() > self.cx as usize {
-                row2.push(row1.remove(self.cx as usize));
-            }
-
-            let row1 = &self.row[self.cy as usize];
-            self.render[self.cy as usize] = self.get_render_vec(row1);
-
-            self.row.insert((self.cy + 1) as usize, row2.to_vec());
-            self.render.insert((self.cy + 1) as usize, self.get_render_vec(&row2));
-        }
-
-        self.dirty = true;
-        self.cx = 0;
-        self.cy = self.cy.wrapping_add(1);
-        self.rows_num = self.rows_num.wrapping_add(1);
     }
 
     /* promotion read for status bar*/
@@ -433,19 +356,61 @@ impl Editor {
                 let reader = BufReader::new(file);
 
                 for line in reader.lines() {
-                    // store raw content
                     let line = line.unwrap().replace("\r", "").replace("\n", "");
-                    self.row.push(line.as_bytes().to_vec());
-                    // store render content
-                    self.render.push(self.get_render_vec(&self.row[self.rows_num as usize]));
-
-                    self.rows_num += 1;
+                    self.insert_new_row(self.rows_num as usize, line.as_bytes().to_vec());
                 }
+
                 self.dirty = false;
             } else {
                 self.set_status_msg(format_args!("File not exist. Open a empty file. Please use Ctrl-s to Save file!!"))
             }
         }
+    }
+
+    fn insert_char(&mut self, c: u8) {
+        if self.cy > self.rows_num {
+            panic!("err cy");
+        }
+        if self.cy == self.rows_num {
+            self.insert_new_row(self.rows_num as usize, Vec::new());
+        }
+
+        if let Ok(_) = self.insert_u8_to_row(self.cy as usize, self.cx as usize, c) {
+            self.dirty = true;
+            self.cx = self.cx.wrapping_add(1);
+        }
+    }
+
+    fn delete_char(&mut self) {
+        if self.cy >= self.rows_num { return; }
+        if self.cx == 0 && self.cy == 0 { return; }
+
+        if self.cx > 0 {
+            if let Ok(_) = self.delete_u8_of_row(self.cy as usize, self.cx as usize - 1) {
+                self.dirty = true;
+                self.cx = self.cx.saturating_sub(1);
+            }
+        } else { // delete at the beginning of line
+            let d = self.delete_row(self.cy as usize);
+            let old_len = self.insert_line_to_row(self.cy as usize - 1, d);
+
+            self.dirty = true;
+            self.cy = self.cy.saturating_sub(1);
+            self.cx = old_len as u32;
+        }
+    }
+
+    fn insert_new_line(&mut self) {
+        if self.cx == 0 {
+            self.insert_new_row(self.cy as usize, Vec::new());
+        } else {
+            let d = self.delete_content_to_end(self.cy as usize, self.cx as usize);
+            self.insert_new_row(self.cy as usize + 1, d);
+        }
+
+        self.dirty = true;
+        self.cx = 0;
+        self.cy = self.cy.wrapping_add(1);
     }
 
     fn save_file(&mut self) {
@@ -548,5 +513,49 @@ impl Editor {
         } else {
             ""
         }
+    }
+
+    /* row modify helper */
+    fn insert_new_row(&mut self, index: usize, line: Vec<u8>) {
+        self.row.insert(index, line);
+        self.render.insert(index, self.get_render_vec(&self.row[index]));
+        self.rows_num += 1;
+    }
+
+    fn insert_u8_to_row(&mut self, y: usize, x: usize, c: u8) -> Result<(), &'static str> {
+        if x > self.row[y].len() { return Err("err cx"); }
+        self.row[y].insert(x, c);
+        self.render[y] = self.get_render_vec(&self.row[y]);
+        Ok(())
+    }
+
+    fn insert_line_to_row(&mut self, y: usize, line: Vec<u8>) -> usize {
+        let old_len = self.row[y].len();
+        for c in line {
+            self.row[y].push(c);
+        }
+        self.render[y] = self.get_render_vec(&self.row[y]);
+        old_len
+    }
+
+    fn delete_row(&mut self, index: usize) -> Vec<u8> {
+        let r = self.row.remove(index);
+        self.render.remove(index);
+        self.rows_num -= 1;
+        r
+    }
+
+    fn delete_u8_of_row(&mut self, y: usize, x: usize) -> Result<(), &'static str> {
+        if x < 0 || x >= self.row[y].len() { return Err("err x"); }
+        self.row[y].remove(x);
+        self.render[y] = self.get_render_vec(&self.row[y]);
+        Ok(())
+    }
+
+    fn delete_content_to_end(&mut self, index: usize, start: usize) -> Vec<u8> {
+        let len = self.row[index].len();
+        let r = self.row[index].drain(start..len).collect();
+        self.render[index] = self.get_render_vec(&self.row[index]);
+        r
     }
 }
