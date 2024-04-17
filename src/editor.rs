@@ -447,7 +447,7 @@ impl Editor {
         let save_col_off = self.col_off;
         let save_row_off = self.row_off;
 
-        let world = self.promotion_read(String::from("Search: {} (ESC to cancel)"), Editor::find_world_callback);
+        let world = self.promotion_read(String::from("Search: {} (Use ESC/Arrows/Enter)"), Editor::find_world_callback);
         if world == "" {
             self.cx = save_cx;
             self.cy = save_cy;
