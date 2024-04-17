@@ -8,6 +8,8 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use crate::config::EditorCfg;
 use crate::highlight::Highlight;
 use crate::key::Keys;
+use crate::syntax::Syntax;
+use crate::{syntax, util};
 use crate::util::get_current_time_secs;
 
 const VERSION: &str = "0.0.1";
@@ -36,6 +38,8 @@ pub struct Editor {
     last_match: i64,
     find_direction: i8,
     saved_match_hl: Vec<Highlight>,
+
+    syntax: Option<&'static Syntax>,
 
     cfg: EditorCfg,
 }
@@ -70,6 +74,8 @@ impl Editor {
             last_match: -1,
             find_direction: 1,
             saved_match_hl: Vec::new(),
+
+            syntax: None,
         }
     }
 
@@ -297,8 +303,7 @@ impl Editor {
             // syntax highlighting
             let start = self.col_off as usize;
             let end = min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize);
-            let r = Highlight::highlight_line(row, &self.hl[file_row as usize], start, end);
-
+            let r = self.highlight_line(row, &self.hl[file_row as usize], start, end);
             self.stdout.write(r.as_bytes()).unwrap();
         }
     }
@@ -326,7 +331,10 @@ impl Editor {
         self.stdout.write_all(b"\x1b[7m").unwrap();
 
         let status = format!("{:20} - {} lines {}", self.cfg.get_file_name(), self.rows_num, self.get_dirty_status());
-        let line = format!("{}/{}", self.cy + 1, self.rows_num);
+        let line = match self.syntax {
+            None => format!("no ft | {}/{}", self.cy + 1, self.rows_num),
+            Some(syntax) => format!("{} | {}/{}", syntax.file_type, self.cy + 1, self.rows_num),
+        };
         let spaces: String = repeat(' ').take(self.cfg.screen_col as usize - status.len() - line.len()).collect();
 
         self.stdout.write_all(status.as_bytes()).unwrap();
@@ -353,6 +361,7 @@ impl Editor {
         if self.cfg.file_name != "" {
             if let Ok(file) = File::open(&self.cfg.file_name) {
                 let reader = BufReader::new(file);
+                self.select_syntax();
 
                 for line in reader.lines() {
                     let line = line.unwrap().replace("\r", "").replace("\n", "");
@@ -419,6 +428,8 @@ impl Editor {
                 self.set_status_msg(format_args!("Save aborted"));
                 return;
             }
+            self.select_syntax();
+            self.re_build_row_highlight();
         } else {}
         let mut file = File::create(&self.cfg.file_name).unwrap();
         let mut bytes: u32 = 0;
@@ -524,11 +535,56 @@ impl Editor {
         }
     }
 
+    fn select_syntax(&mut self) {
+        if self.cfg.file_name == "" { return; }
+
+        let ext = util::get_file_type(&self.cfg.file_name);
+        for s in syntax::HLDB.iter() {
+            for t in s.file_math.iter() {
+                if *t == ext {
+                    self.syntax = Some(s);
+                    break;
+                }
+            }
+        }
+    }
+
+    fn highlight_line(&self, line: &Vec<u8>, hl: &Vec<Highlight>, start: usize, end: usize) -> String {
+        let mut hl_str = String::new();
+
+        for i in start..end {
+            if i == start || hl[i] != hl[i - 1] {
+                hl_str.push_str(hl[i].to_color());
+            }
+            hl_str.push(line[i] as char);
+        }
+
+        hl_str.push_str(Highlight::Normal.to_color());
+        hl_str
+    }
+
+    fn build_row_highlight(&self, line: &Vec<u8>) -> Vec<Highlight> {
+        match self.syntax {
+            None => {
+                let mut r = Vec::new();
+                for _ in 0..line.len() { r.push(Highlight::Normal) }
+                r
+            }
+            Some(syntax) => syntax.syntax_highlight(line),
+        }
+    }
+
+    fn re_build_row_highlight(&mut self) {
+        for i in 0..self.rows_num {
+            self.hl[i as usize] = self.build_row_highlight(&self.render[i as usize]);
+        }
+    }
+
     /* row modify helper */
     fn insert_new_row(&mut self, index: usize, line: Vec<u8>) {
         self.row.insert(index, line);
         self.render.insert(index, self.get_render_vec(&self.row[index]));
-        self.hl.insert(index, Highlight::get_color_highlight(&self.render[index]));
+        self.hl.insert(index, self.build_row_highlight(&self.render[index]));
         self.rows_num += 1;
     }
 
@@ -572,6 +628,6 @@ impl Editor {
 
     fn update_render_and_hl(&mut self, y: usize) {
         self.render[y] = self.get_render_vec(&self.row[y]);
-        self.hl[y] = Highlight::get_color_highlight(&self.render[y]);
+        self.hl[y] = self.build_row_highlight(&self.render[y]);
     }
 }

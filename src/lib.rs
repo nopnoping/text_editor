@@ -3,3 +3,4 @@ pub mod config;
 mod key;
 mod util;
 mod highlight;
+mod syntax;
