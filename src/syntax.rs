@@ -109,7 +109,7 @@ impl Syntax {
 
     pub fn is_multi_comment_start(&self, line: &Vec<u8>) -> bool {
         if line.len() > self.multi_comment_start.len() &&
-            line[0..self.multi_comment_start.len()] == self.multi_comment_start {
+            &line[0..self.multi_comment_start.len()] == self.multi_comment_start.as_bytes() {
             true
         } else {
             false
@@ -118,7 +118,7 @@ impl Syntax {
 
     pub fn is_multi_comment_end(&self, line: &Vec<u8>) -> bool {
         if line.len() > self.multi_comment_end.len() &&
-            line[line.len() - self.multi_comment_end.len()..] == self.multi_comment_end {
+            &line[line.len() - self.multi_comment_end.len()..] == self.multi_comment_end.as_bytes() {
             true
         } else {
             false
