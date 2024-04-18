@@ -8,6 +8,8 @@ pub struct Syntax {
     pub file_math: Vec<&'static str>,
     single_comment_start: &'static str,
     keyword: Vec<&'static str>,
+    multi_comment_start: &'static str,
+    multi_comment_end: &'static str,
 }
 
 lazy_static! {
@@ -20,6 +22,8 @@ lazy_static! {
                 "struct", "union", "typedef", "static", "enum", "class", "case",
                 "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|",
                 "void|"],
+            multi_comment_start: "/*",
+            multi_comment_end: "*/",
         }
     ];
 }
@@ -101,6 +105,24 @@ impl Syntax {
             prev_sep = util::is_separator(c);
         }
         r
+    }
+
+    pub fn is_multi_comment_start(&self, line: &Vec<u8>) -> bool {
+        if line.len() > self.multi_comment_start.len() &&
+            line[0..self.multi_comment_start.len()] == self.multi_comment_start {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_multi_comment_end(&self, line: &Vec<u8>) -> bool {
+        if line.len() > self.multi_comment_end.len() &&
+            line[line.len() - self.multi_comment_end.len()..] == self.multi_comment_end {
+            true
+        } else {
+            false
+        }
     }
 }
 
