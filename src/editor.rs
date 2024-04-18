@@ -29,7 +29,6 @@ pub struct Editor {
     row: Vec<Vec<u8>>,
     render: Vec<Vec<u8>>,
     hl: Vec<Vec<Highlight>>,
-    open_comment: Vec<bool>,
 
     dirty: bool,
     quit_time: u8,
@@ -66,7 +65,6 @@ impl Editor {
             row: Vec::new(),
             render: Vec::new(),
             hl: Vec::new(),
-            open_comment: Vec::new(),
 
             dirty: false,
             quit_time: QUIT_TIMES,
@@ -575,29 +573,28 @@ impl Editor {
         hl_str
     }
 
-    fn build_row_highlight(&self, line: &Vec<u8>, is_comment: bool) -> Vec<Highlight> {
+    fn build_row_highlight(&self, line: &Vec<u8>) -> Vec<Highlight> {
         match self.syntax {
             None => {
                 let mut r = Vec::new();
                 for _ in 0..line.len() { r.push(Highlight::Normal) }
                 r
             }
-            Some(syntax) => syntax.syntax_highlight(line, is_comment),
+            Some(syntax) => syntax.syntax_highlight(line),
         }
     }
 
     fn re_build_row_highlight(&mut self) {
         for i in 0..self.rows_num {
-            self.hl[i as usize] = self.build_row_highlight(&self.render[i as usize], self.open_comment[i as usize]);
+            self.hl[i as usize] = self.build_row_highlight(&self.render[i as usize]);
         }
     }
 
     /* row modify helper */
     fn insert_new_row(&mut self, index: usize, line: Vec<u8>) {
         self.row.insert(index, line);
-        self.open_comment.push(false);
         self.render.insert(index, self.get_render_vec(&self.row[index]));
-        self.hl.insert(index, self.build_row_highlight(&self.render[index], self.open_comment[index]));
+        self.hl.insert(index, self.build_row_highlight(&self.render[index]));
         self.rows_num += 1;
     }
 
@@ -621,7 +618,6 @@ impl Editor {
         let r = self.row.remove(index);
         self.render.remove(index);
         self.hl.remove(index);
-        self.open_comment.remove(index);
         self.rows_num -= 1;
         r
     }
@@ -642,6 +638,6 @@ impl Editor {
 
     fn update_render_and_hl(&mut self, y: usize) {
         self.render[y] = self.get_render_vec(&self.row[y]);
-        self.hl[y] = self.build_row_highlight(&self.render[y], self.open_comment[y]);
+        self.hl[y] = self.build_row_highlight(&self.render[y]);
     }
 }
