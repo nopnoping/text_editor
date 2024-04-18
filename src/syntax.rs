@@ -1,4 +1,3 @@
-use std::ffi::c_int;
 use lazy_static::lazy_static;
 use crate::highlight::Highlight;
 use crate::util;
@@ -25,13 +24,20 @@ lazy_static! {
 }
 
 impl Syntax {
-    pub fn syntax_highlight(&self, line: &Vec<u8>) -> Vec<Highlight> {
+    pub fn syntax_highlight(&self, line: &Vec<u8>, is_comment: bool) -> Vec<Highlight> {
         let mut r = Vec::new();
 
         let mut i = 0;
         let mut prev_sep = true;
         let mut in_string = 0_u8;
         'line: while i < line.len() {
+            // multi comment
+            if is_comment {
+                while i < line.len() {
+                    r.push(Highlight::MComment);
+                    i += 1;
+                }
+            }
             let c = line[i];
             // single comment
             if in_string == 0 && i + 1 < line.len() && &line[i..i + 2] == self.single_comment_start.as_bytes() {
