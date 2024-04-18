@@ -29,6 +29,7 @@ pub struct Editor {
     row: Vec<Vec<u8>>,
     render: Vec<Vec<u8>>,
     hl: Vec<Vec<Highlight>>,
+    in_comment: Vec<bool>,
 
     dirty: bool,
     quit_time: u8,
@@ -65,6 +66,7 @@ impl Editor {
             row: Vec::new(),
             render: Vec::new(),
             hl: Vec::new(),
+            in_comment: Vec::new(),
 
             dirty: false,
             quit_time: QUIT_TIMES,
@@ -300,11 +302,19 @@ impl Editor {
         // file row content
         let row = &self.render[file_row as usize];
         if self.col_off < row.len() as u32 {
-            // syntax highlighting
             let start = self.col_off as usize;
             let end = min(row.len(), (self.col_off + self.cfg.screen_col - 4) as usize);
-            let r = self.highlight_line(row, &self.hl[file_row as usize], start, end);
-            self.stdout.write(r.as_bytes()).unwrap();
+
+            // comment
+            if self.in_comment[file_row as usize] {
+                self.stdout.write_all(b"\x1b[36m").unwrap();
+                self.stdout.write_all(&row[start..end]).unwrap();
+                self.stdout.write_all(b"\x1b[39m").unwrap();
+            } else {
+                // syntax highlighting
+                let r = self.highlight_line(row, &self.hl[file_row as usize], start, end);
+                self.stdout.write(r.as_bytes()).unwrap();
+            }
         }
     }
 
@@ -596,12 +606,17 @@ impl Editor {
         self.render.insert(index, self.get_render_vec(&self.row[index]));
         self.hl.insert(index, self.build_row_highlight(&self.render[index]));
         self.rows_num += 1;
+
+        self.in_comment.insert(index, false);
+        self.update_in_comment(index);
     }
 
     fn insert_u8_to_row(&mut self, y: usize, x: usize, c: u8) -> Result<(), &'static str> {
         if x > self.row[y].len() { return Err("err cx"); }
         self.row[y].insert(x, c);
         self.update_render_and_hl(y);
+
+        self.update_in_comment(y);
         Ok(())
     }
 
@@ -611,6 +626,7 @@ impl Editor {
             self.row[y].push(c);
         }
         self.update_render_and_hl(y);
+        self.update_in_comment(y);
         old_len
     }
 
@@ -619,6 +635,10 @@ impl Editor {
         self.render.remove(index);
         self.hl.remove(index);
         self.rows_num -= 1;
+
+        self.in_comment.remove(index);
+        self.update_in_comment(index);
+
         r
     }
 
@@ -626,6 +646,8 @@ impl Editor {
         if x >= self.row[y].len() { return Err("err x"); }
         self.row[y].remove(x);
         self.update_render_and_hl(y);
+
+        self.update_in_comment(y);
         Ok(())
     }
 
@@ -633,11 +655,16 @@ impl Editor {
         let len = self.row[index].len();
         let r = self.row[index].drain(start..len).collect();
         self.update_render_and_hl(index);
+        self.update_in_comment(index);
         r
     }
 
     fn update_render_and_hl(&mut self, y: usize) {
         self.render[y] = self.get_render_vec(&self.row[y]);
         self.hl[y] = self.build_row_highlight(&self.render[y]);
+    }
+
+    fn update_in_comment(&mut self, y: usize) {
+        if y >= self.rows_num as usize { return; }
     }
 }
