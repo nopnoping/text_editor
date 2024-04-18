@@ -1,4 +1,3 @@
-use std::ffi::c_int;
 use lazy_static::lazy_static;
 use crate::highlight::Highlight;
 use crate::util;
