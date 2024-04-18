@@ -1,3 +1,3 @@
-text editor by rust
-
-inspire by https://viewsourcecode.org/snaptoken/kilo/08.appendices.html
+Text Editor by rust.
+Inspired by: https://viewsourcecode.org/snaptoken/kilo/index.html
+Author: Luexp
