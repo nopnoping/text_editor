@@ -108,7 +108,7 @@ impl Syntax {
     }
 
     pub fn is_multi_comment_start(&self, line: &Vec<u8>) -> bool {
-        if line.len() > self.multi_comment_start.len() &&
+        if line.len() >= self.multi_comment_start.len() &&
             &line[0..self.multi_comment_start.len()] == self.multi_comment_start.as_bytes() {
             true
         } else {
@@ -117,7 +117,7 @@ impl Syntax {
     }
 
     pub fn is_multi_comment_end(&self, line: &Vec<u8>) -> bool {
-        if line.len() > self.multi_comment_end.len() &&
+        if line.len() >= self.multi_comment_end.len() &&
             &line[line.len() - self.multi_comment_end.len()..] == self.multi_comment_end.as_bytes() {
             true
         } else {
@@ -132,7 +132,8 @@ mod test {
 
     #[test]
     fn test_keyword() {
-        let s = " return return;";
-        HLDB[0].syntax_highlight(&s.as_bytes().to_vec());
+        let s = "*/";
+        assert_eq!(true, HLDB[0].is_multi_comment_end(&s.as_bytes().to_vec()));
+        // HLDB[0].syntax_highlight(&s.as_bytes().to_vec());
     }
 }

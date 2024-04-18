@@ -378,6 +378,8 @@ impl Editor {
                     self.insert_new_row(self.rows_num as usize, line.as_bytes().to_vec());
                 }
 
+                self.update_in_comment();
+
                 self.dirty = false;
             } else {
                 self.set_status_msg(format_args!("File not exist. Open a empty file. Please use Ctrl-s to Save file!!"))
@@ -396,6 +398,7 @@ impl Editor {
         if let Ok(_) = self.insert_u8_to_row(self.cy as usize, self.cx as usize, c) {
             self.dirty = true;
             self.cx = self.cx.wrapping_add(1);
+            self.update_in_comment();
         }
     }
 
@@ -416,6 +419,7 @@ impl Editor {
             self.cy = self.cy.saturating_sub(1);
             self.cx = old_len as u32;
         }
+        self.update_in_comment();
     }
 
     fn insert_new_line(&mut self) {
@@ -429,6 +433,7 @@ impl Editor {
         self.dirty = true;
         self.cx = 0;
         self.cy = self.cy.wrapping_add(1);
+        self.update_in_comment();
     }
 
     fn save_file(&mut self) {
@@ -605,10 +610,8 @@ impl Editor {
         self.row.insert(index, line);
         self.render.insert(index, self.get_render_vec(&self.row[index]));
         self.hl.insert(index, self.build_row_highlight(&self.render[index]));
-        self.rows_num += 1;
-
         self.in_comment.insert(index, false);
-        self.update_in_comment(index);
+        self.rows_num += 1;
     }
 
     fn insert_u8_to_row(&mut self, y: usize, x: usize, c: u8) -> Result<(), &'static str> {
@@ -616,7 +619,6 @@ impl Editor {
         self.row[y].insert(x, c);
         self.update_render_and_hl(y);
 
-        self.update_in_comment(y);
         Ok(())
     }
 
@@ -626,7 +628,6 @@ impl Editor {
             self.row[y].push(c);
         }
         self.update_render_and_hl(y);
-        self.update_in_comment(y);
         old_len
     }
 
@@ -634,11 +635,8 @@ impl Editor {
         let r = self.row.remove(index);
         self.render.remove(index);
         self.hl.remove(index);
-        self.rows_num -= 1;
-
         self.in_comment.remove(index);
-        self.update_in_comment(index);
-
+        self.rows_num -= 1;
         r
     }
 
@@ -647,7 +645,6 @@ impl Editor {
         self.row[y].remove(x);
         self.update_render_and_hl(y);
 
-        self.update_in_comment(y);
         Ok(())
     }
 
@@ -655,7 +652,6 @@ impl Editor {
         let len = self.row[index].len();
         let r = self.row[index].drain(start..len).collect();
         self.update_render_and_hl(index);
-        self.update_in_comment(index);
         r
     }
 
@@ -664,7 +660,25 @@ impl Editor {
         self.hl[y] = self.build_row_highlight(&self.render[y]);
     }
 
-    fn update_in_comment(&mut self, y: usize) {
-        if y >= self.rows_num as usize { return; }
+    fn update_in_comment(&mut self) {
+        match self.syntax {
+            None => {}
+            Some(syntax) => {
+                let mut in_comment = false;
+                for i in 0..self.rows_num as usize {
+                    if in_comment {
+                        self.in_comment[i] = true;
+                        if syntax.is_multi_comment_end(&self.row[i]) {
+                            in_comment = false;
+                        }
+                    } else {
+                        if syntax.is_multi_comment_start(&self.row[i]) {
+                            in_comment = true;
+                        }
+                        self.in_comment[i] = in_comment;
+                    }
+                }
+            }
+        }
     }
 }
