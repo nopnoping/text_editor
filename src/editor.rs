@@ -307,9 +307,9 @@ impl Editor {
 
             // comment
             if self.in_comment[file_row as usize] {
-                self.stdout.write_all(b"\x1b[36m").unwrap();
+                self.stdout.write_all(Highlight::MComment.to_color().as_bytes()).unwrap();
                 self.stdout.write_all(&row[start..end]).unwrap();
-                self.stdout.write_all(b"\x1b[39m").unwrap();
+                self.stdout.write_all(Highlight::Normal.to_color().as_bytes()).unwrap();
             } else {
                 // syntax highlighting
                 let r = self.highlight_line(row, &self.hl[file_row as usize], start, end);
