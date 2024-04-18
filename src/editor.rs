@@ -553,6 +553,16 @@ impl Editor {
         let mut hl_str = String::new();
 
         for i in start..end {
+            if line[i].is_ascii_control() {
+                hl_str.push_str("\x1b[7m");
+                if line[i] <= 26 {
+                    hl_str.push('@');
+                } else {
+                    hl_str.push('?');
+                }
+                hl_str.push_str("\x1b[m");
+                continue;
+            }
             if i == start || hl[i] != hl[i - 1] {
                 hl_str.push_str(hl[i].to_color());
             }
