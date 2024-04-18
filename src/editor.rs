@@ -13,7 +13,7 @@ use crate::{syntax, util};
 use crate::util::get_current_time_secs;
 
 const VERSION: &str = "0.0.1";
-const TABLE_STOP: u8 = 8;
+const TABLE_STOP: u8 = 4;
 const QUIT_TIMES: u8 = 1;
 
 pub struct Editor {

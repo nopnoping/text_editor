@@ -1,3 +1,4 @@
+use std::ffi::c_int;
 use lazy_static::lazy_static;
 use crate::highlight::Highlight;
 use crate::util;
@@ -18,7 +19,7 @@ lazy_static! {
             keyword: vec!["switch", "if", "while", "for", "break", "continue", "return", "else",
                 "struct", "union", "typedef", "static", "enum", "class", "case",
                 "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|",
-                "void|"]
+                "void|"],
         }
     ];
 }
@@ -30,7 +31,7 @@ impl Syntax {
         let mut i = 0;
         let mut prev_sep = true;
         let mut in_string = 0_u8;
-        while i < line.len() {
+        'line: while i < line.len() {
             let c = line[i];
             // single comment
             if in_string == 0 && i + 1 < line.len() && &line[i..i + 2] == self.single_comment_start.as_bytes() {
@@ -82,13 +83,13 @@ impl Syntax {
                         k2 = true;
                     }
 
-                    if i + len < line.len() && (i + len == line.len() || util::is_separator(line[i + len])) {
+                    if i + len == line.len() || (i + len < line.len() && util::is_separator(line[i + len])) {
                         if &line[i..i + len] == keyword[0..len].as_bytes() {
                             for _ in 0..len {
                                 if k2 { r.push(Highlight::Keyword2); } else { r.push(Highlight::Keyword1); }
-                                i += 1;
                             }
-                            continue;
+                            i += len;
+                            continue 'line;
                         }
                     }
                 }
@@ -100,5 +101,16 @@ impl Syntax {
             prev_sep = util::is_separator(c);
         }
         r
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_keyword() {
+        let s = " return return;";
+        HLDB[0].syntax_highlight(&s.as_bytes().to_vec());
     }
 }
